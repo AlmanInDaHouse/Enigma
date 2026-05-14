@@ -4,14 +4,16 @@
 *.env
 
 # Audios y transcripciones (nunca commitear)
-data/audio/
-data/transcripts/
-data/logs/
-data/enigma.db
-data/enigma.db-*
+/data/audio/
+/data/transcripts/
+/data/logs/
+/data/enigma.db
+/data/enigma.db-*
 
-# Vault (vive en otro repo, ver docs/setup-windows.md)
-vault/
+# Vault de Obsidian (vive en otro repo, ver docs/setup-windows.md).
+# Slash inicial = anclado a la raíz, para no ignorar `src/enigma/vault/`
+# (el paquete Python con el writer + frontmatter).
+/vault/
 
 # ─── Python ───────────────────────────────────────────────────
 __pycache__/
@@ -92,7 +94,10 @@ qdrant_storage/
 docker-volumes/
 
 # ─── Modelos descargados (pesados) ────────────────────────────
-models/
+# Slash inicial = anclado a la raíz, para no ignorar `src/enigma/models/`
+# (los Pydantic models). Pesos como *.gguf / *.safetensors siguen
+# globales porque nunca queremos commitearlos esten donde esten.
+/models/
 *.bin
 *.pt
 *.gguf
