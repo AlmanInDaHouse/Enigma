@@ -24,7 +24,7 @@
   - *Aceptación:* `uv sync` o `poetry install` instala sin errores
 - [x] **T-003** Configurar `.gitignore` para Python + Windows + datos sensibles (`*.wav`, `data/`, `.env`)
   - *Aceptación:* `git status` limpio tras setup
-- [ ] **T-004** Configurar pre-commit con `ruff`, `black`, `mypy`
+- [x] **T-004** Configurar pre-commit con `ruff`, `black`, `mypy`
   - *Aceptación:* commit con código mal formateado se bloquea
 - [ ] **T-005** Crear `docker-compose.yml` con servicio Qdrant
   - *Aceptación:* `docker compose up qdrant` deja Qdrant respondiendo en `http://localhost:6333/dashboard`
