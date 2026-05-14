@@ -53,7 +53,7 @@
   - *Aceptación:* transcribe un audio de prueba en español con WER ≤ 15%
 - [ ] **T-103** Integrar diarización con `pyannote.audio` (RF-03)
   - *Aceptación:* output incluye `speakers` distinguibles cuando el audio tiene 2+ voces
-- [ ] **T-104** Persistir transcripción como JSON en `data/transcripts/{call_id}.json`
+- [x] **T-104** Persistir transcripción como JSON en `data/transcripts/{call_id}.json`
   - *Aceptación:* JSON validable con esquema Pydantic `Transcript`
 
 ### Extracción de notas atómicas
@@ -183,7 +183,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 2 | 13% | T-102 verifica end-to-end con audio real fuera de CI (`pytest -m integration`); WER medible quedará para tras T-115 cuando exista un fixture grabado del equipo. |
+| 1 | 15 | 3 | 20% | T-103 (diarización) diferido a pendiente de HF token + aceptación manual de términos del modelo `pyannote/speaker-diarization-3.1`. T-102 verifica end-to-end con audio real fuera de CI (`pytest -m integration`); WER medible quedará para tras T-115 cuando exista un fixture grabado del equipo. |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |

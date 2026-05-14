@@ -11,7 +11,9 @@ T-103 reemplazará `speaker=None` en los segmentos con la salida de pyannote.
 import math
 from datetime import UTC, datetime
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from enigma.config import settings
 from enigma.models.call import Call
@@ -102,3 +104,28 @@ def transcribe(call: Call, *, model_size: str | None = None) -> Transcript:
         segments=segments,
         created_at=datetime.now(tz=UTC),
     )
+
+
+def _transcript_path(call_id: UUID) -> Path:
+    """Ruta canónica del JSON para un `call_id` (`data/transcripts/<id>.json`)."""
+    return settings.enigma_data_path / "transcripts" / f"{call_id}.json"
+
+
+def save_transcript(transcript: Transcript) -> Path:
+    """Persiste `transcript` como JSON. Idempotente: sobrescribe si existe.
+
+    Returns:
+        La ruta absoluta del fichero escrito.
+    """
+    target = _transcript_path(transcript.call_id)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(transcript.model_dump_json(indent=2), encoding="utf-8")
+    return target
+
+
+def load_transcript(call_id: UUID) -> Transcript | None:
+    """Carga el Transcript persistido. Devuelve `None` si no hay fichero."""
+    path = _transcript_path(call_id)
+    if not path.is_file():
+        return None
+    return Transcript.model_validate_json(path.read_text(encoding="utf-8"))
