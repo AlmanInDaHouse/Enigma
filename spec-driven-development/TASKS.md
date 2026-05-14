@@ -22,7 +22,7 @@
   - *Aceptación:* `git push origin main` exitoso desde `C:\Users\manul\Enigma_V3`
 - [x] **T-002** Crear `pyproject.toml` con dependencias base (FastAPI, Typer, Pydantic, pytest, ruff, black, mypy)
   - *Aceptación:* `uv sync` o `poetry install` instala sin errores
-- [ ] **T-003** Configurar `.gitignore` para Python + Windows + datos sensibles (`*.wav`, `data/`, `.env`)
+- [x] **T-003** Configurar `.gitignore` para Python + Windows + datos sensibles (`*.wav`, `data/`, `.env`)
   - *Aceptación:* `git status` limpio tras setup
 - [ ] **T-004** Configurar pre-commit con `ruff`, `black`, `mypy`
   - *Aceptación:* commit con código mal formateado se bloquea
