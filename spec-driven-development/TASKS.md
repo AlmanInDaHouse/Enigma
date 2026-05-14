@@ -30,7 +30,7 @@
   - *Aceptación:* `docker compose up qdrant` deja Qdrant respondiendo en `http://localhost:6333/dashboard`
 - [ ] **T-006** Instalar Ollama localmente y descargar `llama3.1:8b` + `nomic-embed-text`
   - *Aceptación:* `ollama run llama3.1:8b "Hola"` responde
-- [ ] **T-007** Crear `src/enigma/config.py` con `Pydantic Settings` cargando `.env`
+- [x] **T-007** Crear `src/enigma/config.py` con `Pydantic Settings` cargando `.env`
   - *Aceptación:* `python -c "from enigma.config import settings; print(settings)"` imprime config
 - [ ] **T-008** Crear estructura de carpetas según `PLAN.md` §3 con `__init__.py` en todos los paquetes
   - *Aceptación:* `pytest` arranca sin errores de import
