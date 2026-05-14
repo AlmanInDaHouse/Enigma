@@ -89,43 +89,45 @@
 ```
 Enigma_V3/
 ├── README.md
-├── CONSTITUTION.md
-├── SPEC.md
-├── PLAN.md
-├── TASKS.md
+├── CLAUDE.md                       # contexto persistente para Claude Code
 ├── .gitignore
 ├── .env.example
 ├── pyproject.toml
 ├── docker-compose.yml
-├── docs/
-│   ├── data-model.md
-│   ├── architecture.md
-│   ├── setup-windows.md
-│   └── architecture/
-│       └── pipeline.mmd       # diagrama mermaid
-├── specs/
-│   └── 001-mvp-core/
-│       └── spec.md            # spec detallada del primer feature
+├── spec-driven-development/        # documentación SDD viva (lectura obligada cada sesión)
+│   ├── CONSTITUTION.md             # principios inmutables
+│   ├── SPEC.md                     # qué construimos
+│   ├── PLAN.md                     # cómo lo construimos (este fichero)
+│   ├── TASKS.md                    # desglose accionable por fases
+│   ├── docs/
+│   │   ├── data-model.md
+│   │   ├── architecture.md
+│   │   └── setup-windows.md
+│   ├── prompts/
+│   │   └── initial-prompt.md       # prompt de arranque de sesión
+│   └── specs/
+│       └── 001-mvp-core/
+│           └── spec.md             # spec detallada del primer feature
 ├── src/
 │   └── enigma/
 │       ├── __init__.py
-│       ├── cli.py             # Typer entrypoint
-│       ├── api.py             # FastAPI app
-│       ├── config.py          # Pydantic Settings
-│       ├── models/            # Pydantic models
+│       ├── cli.py                  # Typer entrypoint
+│       ├── api.py                  # FastAPI app
+│       ├── config.py               # Pydantic Settings
+│       ├── models/                 # Pydantic models
 │       │   ├── call.py
 │       │   ├── transcript.py
 │       │   └── note.py
 │       ├── ingest/
 │       │   ├── audio.py
-│       │   └── transcriber.py # faster-whisper wrapper
+│       │   └── transcriber.py      # faster-whisper wrapper
 │       ├── extract/
 │       │   ├── prompts.py
-│       │   └── extractor.py   # LLM → notas atómicas
+│       │   └── extractor.py        # LLM → notas atómicas
 │       ├── vault/
-│       │   ├── writer.py      # escribe .md
+│       │   ├── writer.py           # escribe .md
 │       │   ├── frontmatter.py
-│       │   └── linker.py      # propone wikilinks
+│       │   └── linker.py           # propone wikilinks
 │       ├── vector/
 │       │   ├── qdrant_client.py
 │       │   └── embedder.py
@@ -135,23 +137,28 @@ Enigma_V3/
 │       │   ├── contradictions.py
 │       │   └── tasks_extractor.py
 │       └── workers/
-│           └── watcher.py     # observa el Vault
-├── vault/                     # Obsidian Vault (submódulo o subdir)
+│           └── watcher.py          # observa el Vault
+├── vault/                          # Obsidian Vault — repo separado (Enigma-Vault.git) clonado aquí. Gitignored.
 │   ├── .obsidian/
-│   ├── inbox/                 # notas recién extraídas, pendientes de revisión
-│   ├── notes/                 # notas atómicas validadas
-│   ├── calls/                 # nota índice por llamada
-│   └── people/                # notas-entidad para personas mencionadas
+│   ├── inbox/                      # notas recién extraídas, pendientes de revisión
+│   ├── notes/                      # notas atómicas validadas
+│   ├── calls/                      # nota índice por llamada
+│   └── people/                     # notas-entidad para personas mencionadas
 ├── tests/
 │   ├── unit/
 │   ├── integration/
 │   └── fixtures/
 │       └── audios/
 └── scripts/
-    ├── bootstrap.ps1          # setup Windows
-    ├── bootstrap.sh           # setup Unix
-    └── reindex.py             # reconstruir Qdrant desde el Vault
+    ├── bootstrap.ps1               # setup Windows
+    ├── bootstrap.sh                # setup Unix
+    └── reindex.py                  # reconstruir Qdrant desde el Vault
 ```
+
+**Notas sobre el layout:**
+- Los ficheros canónicos del proyecto (`pyproject.toml`, `docker-compose.yml`, `.env.example`, `.gitignore`, `README.md`) viven en la **raíz** del repo, donde las herramientas Python (uv/ruff/pytest) los esperan.
+- La documentación SDD vive en `spec-driven-development/` como subdirectorio dedicado. `CLAUDE.md` apunta a esta ruta para los specs canónicos.
+- El **Vault de Obsidian es un repo Git independiente** (ver `docs/setup-windows.md` y §4.4). Se clona dentro de `vault/`, pero ese directorio está en `.gitignore` de este repo — no se versiona aquí.
 
 ## 4. Decisiones técnicas clave
 
