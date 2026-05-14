@@ -79,7 +79,7 @@ def register_call(audio_path: Path, *, title: str | None = None) -> Call:
     ext = audio_path.suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
         raise UnsupportedAudioFormatError(
-            f"Unsupported audio extension {ext!r}. " f"Allowed: {sorted(SUPPORTED_EXTENSIONS)}"
+            f"Unsupported audio extension {ext!r}. Allowed: {sorted(SUPPORTED_EXTENSIONS)}"
         )
 
     content_hash = _sha256_of_file(audio_path)
