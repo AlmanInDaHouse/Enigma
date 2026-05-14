@@ -26,7 +26,7 @@
   - *Aceptación:* `git status` limpio tras setup
 - [x] **T-004** Configurar pre-commit con `ruff`, `black`, `mypy`
   - *Aceptación:* commit con código mal formateado se bloquea
-- [ ] **T-005** Crear `docker-compose.yml` con servicio Qdrant
+- [x] **T-005** Crear `docker-compose.yml` con servicio Qdrant
   - *Aceptación:* `docker compose up qdrant` deja Qdrant respondiendo en `http://localhost:6333/dashboard`
 - [ ] **T-006** Instalar Ollama localmente y descargar `llama3.1:8b` + `nomic-embed-text`
   - *Aceptación:* `ollama run llama3.1:8b "Hola"` responde
