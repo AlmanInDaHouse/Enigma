@@ -125,7 +125,8 @@ Enigma_V3/
 │       │   ├── audio.py
 │       │   └── transcriber.py      # faster-whisper wrapper
 │       ├── extract/
-│       │   ├── prompts.py
+│       │   ├── prompts.py          # plantilla system+user para el LLM
+│       │   ├── chunker.py          # particionado del transcript con overlap
 │       │   └── extractor.py        # LLM → notas atómicas
 │       ├── vault/
 │       │   ├── writer.py           # escribe .md

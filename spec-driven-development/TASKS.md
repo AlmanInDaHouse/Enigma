@@ -60,7 +60,7 @@
 
 - [x] **T-105** Diseñar y testear prompt de extracción atómica en `extract/prompts.py` (RF-04)
   - *Aceptación:* sobre 3 transcripts de prueba, produce entre 5-30 notas/hora *(validación estática completa; medición empírica de 5-30 notas/h queda para T-115 con LLM real)*
-- [ ] **T-106** Implementar chunking con overlap del transcript
+- [x] **T-106** Implementar chunking con overlap del transcript
   - *Aceptación:* test unitario verifica que un transcript de 10k tokens se divide correctamente
 - [ ] **T-107** Implementar `extract/extractor.py` con cliente Ollama
   - *Aceptación:* devuelve `List[Note]` validados por Pydantic
@@ -183,7 +183,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 4 | 27% | T-103 (diarización) diferido a pendiente de HF token + aceptación manual de términos del modelo `pyannote/speaker-diarization-3.1`. T-102 y T-105 verifican fuera de CI con LLM/audio real (`pytest -m integration` o medición empírica en T-115). |
+| 1 | 15 | 5 | 33% | T-103 (diarización) diferido a pendiente de HF token + aceptación manual de términos del modelo `pyannote/speaker-diarization-3.1`. T-102 y T-105 verifican fuera de CI con LLM/audio real (`pytest -m integration` o medición empírica en T-115). |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
