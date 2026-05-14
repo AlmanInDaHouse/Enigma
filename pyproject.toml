@@ -19,7 +19,7 @@ dependencies = [
     # API + CLI
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
-    "typer[all]>=0.12",
+    "typer>=0.12",
 
     # Audio + transcripción
     "faster-whisper>=1.0",
