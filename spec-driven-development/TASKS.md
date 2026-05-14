@@ -18,7 +18,7 @@
 
 > Objetivo: repositorio inicializado, dependencias funcionando, "hello world" del pipeline.
 
-- [ ] **T-001** Inicializar repositorio Git y conectar a `github.com/AlmanInDaHouse/Enigma.git`
+- [x] **T-001** Inicializar repositorio Git y conectar a `github.com/AlmanInDaHouse/Enigma.git`
   - *Aceptación:* `git push origin main` exitoso desde `C:\Users\manul\Enigma_V3`
 - [ ] **T-002** Crear `pyproject.toml` con dependencias base (FastAPI, Typer, Pydantic, pytest, ruff, black, mypy)
   - *Aceptación:* `uv sync` o `poetry install` instala sin errores
