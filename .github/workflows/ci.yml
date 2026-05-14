@@ -47,7 +47,10 @@ jobs:
       - name: Mypy type-check
         run: uv run mypy src
 
-      - name: Pytest
-        # --cov-fail-under=0 while the test suite is empty (Phase 0).
-        # Raise to 70 once T-101+ land real tests (see CLAUDE.md, DoD).
-        run: uv run pytest --cov=enigma --cov-report=term-missing --cov-fail-under=0
+      - name: Pytest (unit only)
+        # `-m "not integration"` excluye tests que descargan modelos
+        # (Whisper, pyannote) o requieren Qdrant/Ollama corriendo. Esos se
+        # corren manualmente con `uv run pytest -m integration`.
+        # --cov-fail-under=0 mientras el suite crece; subir a 70 cuando
+        # T-115 (E2E) cierre Fase 1 (ver CLAUDE.md, DoD).
+        run: uv run pytest -m "not integration" --cov=enigma --cov-report=term-missing --cov-fail-under=0

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     whisper_model: str = "large-v3"
     whisper_device: str = "auto"
     whisper_language: str = "es"
-    whisper_compute_type: str = "int8"
+    whisper_compute_type: str = "auto"
 
     # ── Diarización (pyannote) ──────────────────────────────────────────
     diarization_enabled: bool = True

@@ -49,7 +49,7 @@
 
 - [x] **T-101** Implementar `enigma.ingest.audio.register_call(path) -> Call` (RF-01)
   - *Aceptación:* copia el audio a `data/audio/{call_id}.{ext}` (extensión preservada) y crea registro en SQLite
-- [ ] **T-102** Wrapper de `faster-whisper` en `enigma.ingest.transcriber` (RF-02)
+- [x] **T-102** Wrapper de `faster-whisper` en `enigma.ingest.transcriber` (RF-02)
   - *Aceptación:* transcribe un audio de prueba en español con WER ≤ 15%
 - [ ] **T-103** Integrar diarización con `pyannote.audio` (RF-03)
   - *Aceptación:* output incluye `speakers` distinguibles cuando el audio tiene 2+ voces
@@ -183,7 +183,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 1 | 7% | — |
+| 1 | 15 | 2 | 13% | T-102 verifica end-to-end con audio real fuera de CI (`pytest -m integration`); WER medible quedará para tras T-115 cuando exista un fixture grabado del equipo. |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
