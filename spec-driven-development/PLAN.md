@@ -1,0 +1,278 @@
+# Enigma — Plan Técnico (PLAN)
+
+> **Versión:** 1.0 · **Estado:** Borrador inicial
+> **Propósito:** describe **cómo** se implementa lo definido en `SPEC.md`, respetando `CONSTITUTION.md`.
+
+---
+
+## 1. Stack tecnológico
+
+| Capa | Tecnología | Justificación |
+|---|---|---|
+| Lenguaje principal | **Python 3.11+** | Ecosistema maduro para IA/NLP; mismo lenguaje en todo el pipeline |
+| Transcripción | **faster-whisper** (CTranslate2) | 4× más rápido que whisper original; CPU-friendly; soporta español |
+| Diarización | **pyannote.audio** | Estándar de facto; modelos pre-entrenados |
+| LLM local | **Ollama** + Llama 3.1 8B / Mistral 7B | API REST sencilla, gestión de modelos automática |
+| Embeddings | **Ollama** con `nomic-embed-text` | Local, 768 dim, buen español |
+| Vector DB | **Qdrant** (Docker) | Robusto, filtrado por metadatos, REST + gRPC |
+| Orquestación IA | **LlamaIndex** | Mejor abstracción para retrieval + agentes que LangChain para este caso |
+| API interna | **FastAPI** | Tipado con Pydantic, docs auto, async nativo |
+| Cola de trabajos | **SQLite + APScheduler** | Suficiente para 6 usuarios; cero infraestructura extra |
+| Knowledge store | **Obsidian Vault** en Git | Markdown plano, versionado, sin lock-in |
+| CLI | **Typer** | Builds CLIs claras a partir de funciones |
+| Testing | **pytest + pytest-asyncio** | Estándar |
+| Linting / format | **ruff + black + mypy** | Calidad sin discusiones |
+| Empaquetado | **Docker Compose** | Un comando para levantar Qdrant + workers |
+| Dependencias Python | **uv** o **poetry** | uv preferido por velocidad |
+
+## 2. Arquitectura por componentes
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          Usuario (CLI / Obsidian)                    │
+└───────────────┬──────────────────────────────────────┬──────────────┘
+                │                                      │
+                ▼                                      ▼
+        ┌──────────────┐                        ┌────────────────┐
+        │   enigma-cli │                        │  Obsidian.app  │
+        └──────┬───────┘                        └────────┬───────┘
+               │                                         │ (lee/escribe MD)
+               ▼                                         │
+        ┌──────────────────────────────────┐             │
+        │   FastAPI (puerto 8077)          │             │
+        └─────┬────────────┬──────────┬────┘             │
+              │            │          │                  │
+              ▼            ▼          ▼                  │
+        ┌─────────┐  ┌──────────┐ ┌──────────┐           │
+        │ Ingestor│  │Extractor │ │  Agente  │           │
+        │ (audio) │  │  (LLM)   │ │  (RAG)   │           │
+        └────┬────┘  └─────┬────┘ └─────┬────┘           │
+             │             │            │                │
+             ▼             ▼            │                │
+        ┌────────────────────────┐      │                │
+        │   Procesador NLP       │      │                │
+        │ Whisper → Diarización  │      │                │
+        └──────────┬─────────────┘      │                │
+                   │                    │                │
+                   ▼                    ▼                ▼
+        ┌──────────────────────────────────────────────────┐
+        │   Vault Writer  (escribe .md en Obsidian Vault)  │
+        └──────────────────────┬───────────────────────────┘
+                               │
+                               ▼
+        ┌──────────────────────────────────────────────────┐
+        │   Vault de Obsidian (carpeta Git)                │
+        └──────────────────────┬───────────────────────────┘
+                               │ (file watcher)
+                               ▼
+        ┌──────────────────────────────────────────────────┐
+        │   Vectorizer  →  Qdrant (puerto 6333)            │
+        └──────────────────────────────────────────────────┘
+```
+
+### 2.1 Componentes
+
+| Componente | Responsabilidad | Entradas | Salidas |
+|---|---|---|---|
+| **enigma-cli** | UX en línea de comandos | argumentos | llamadas a la API |
+| **API (FastAPI)** | Orquestación HTTP, expone endpoints REST | HTTP | dispatch a workers |
+| **Ingestor** | Recibe audio, lo registra como `Call`, dispara procesamiento | fichero de audio | `call_id` |
+| **Procesador NLP** | Transcribe + diariza | audio | `Transcript` con segmentos |
+| **Extractor** | Convierte transcript en notas atómicas vía LLM | `Transcript` | lista de `Note` |
+| **Vault Writer** | Persiste notas como `.md` en el Vault | `Note[]` | ficheros en disco |
+| **Vectorizer** | Embebe notas y *upsertea* en Qdrant | `Note` | vectores en Qdrant |
+| **Agente** | RAG + análisis transversal | consulta o tarea | respuesta con citas |
+| **File watcher** | Detecta cambios en el Vault y dispara re-vectorización | eventos FS | calls a Vectorizer |
+
+## 3. Estructura del repositorio
+
+```
+Enigma_V3/
+├── README.md
+├── CONSTITUTION.md
+├── SPEC.md
+├── PLAN.md
+├── TASKS.md
+├── .gitignore
+├── .env.example
+├── pyproject.toml
+├── docker-compose.yml
+├── docs/
+│   ├── data-model.md
+│   ├── architecture.md
+│   ├── setup-windows.md
+│   └── architecture/
+│       └── pipeline.mmd       # diagrama mermaid
+├── specs/
+│   └── 001-mvp-core/
+│       └── spec.md            # spec detallada del primer feature
+├── src/
+│   └── enigma/
+│       ├── __init__.py
+│       ├── cli.py             # Typer entrypoint
+│       ├── api.py             # FastAPI app
+│       ├── config.py          # Pydantic Settings
+│       ├── models/            # Pydantic models
+│       │   ├── call.py
+│       │   ├── transcript.py
+│       │   └── note.py
+│       ├── ingest/
+│       │   ├── audio.py
+│       │   └── transcriber.py # faster-whisper wrapper
+│       ├── extract/
+│       │   ├── prompts.py
+│       │   └── extractor.py   # LLM → notas atómicas
+│       ├── vault/
+│       │   ├── writer.py      # escribe .md
+│       │   ├── frontmatter.py
+│       │   └── linker.py      # propone wikilinks
+│       ├── vector/
+│       │   ├── qdrant_client.py
+│       │   └── embedder.py
+│       ├── agent/
+│       │   ├── rag.py
+│       │   ├── summarizer.py
+│       │   ├── contradictions.py
+│       │   └── tasks_extractor.py
+│       └── workers/
+│           └── watcher.py     # observa el Vault
+├── vault/                     # Obsidian Vault (submódulo o subdir)
+│   ├── .obsidian/
+│   ├── inbox/                 # notas recién extraídas, pendientes de revisión
+│   ├── notes/                 # notas atómicas validadas
+│   ├── calls/                 # nota índice por llamada
+│   └── people/                # notas-entidad para personas mencionadas
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── fixtures/
+│       └── audios/
+└── scripts/
+    ├── bootstrap.ps1          # setup Windows
+    ├── bootstrap.sh           # setup Unix
+    └── reindex.py             # reconstruir Qdrant desde el Vault
+```
+
+## 4. Decisiones técnicas clave
+
+### 4.1 ¿Por qué LlamaIndex y no LangChain?
+LlamaIndex tiene mejor primitivas para *retrieval* puro (que es el 80% de lo que hace Enigma). LangChain es más generalista pero más pesado y con APIs cambiantes. Si en v2 necesitamos agentes complejos multi-tool, reevaluamos.
+
+### 4.2 ¿Por qué Qdrant y no PGVector / Chroma?
+- **Chroma:** embebido y simple, pero filtrado por metadatos limitado.
+- **PGVector:** requiere Postgres, más infraestructura.
+- **Qdrant:** estándalone, filtros ricos, rendimiento probado, REST cómoda.
+
+Como **fallback configurable** en v1, ChromaDB embebido para usuarios que no quieran Docker.
+
+### 4.3 ¿Por qué SQLite + APScheduler y no Celery/Redis?
+Para 6 usuarios y ~10 calls/día, una cola de trabajos en SQLite con APScheduler es suficiente, no añade dependencias, no requiere Redis. La Constitution dicta simplicidad.
+
+### 4.4 ¿Cómo se sincroniza el Vault entre los 6 usuarios?
+**Git** con flujo automatizado:
+- Plugin `obsidian-git` en cada cliente, configurado para hacer `pull` cada 10 min y `commit + push` automático.
+- Un repo dedicado para el Vault (`Enigma-Vault.git`), separado del repo de código.
+- Conflictos se resuelven por merge automático en `.md` (raros) y revisión manual cuando ocurren.
+- El procesador NLP corre **en una sola máquina** (la del admin o un mini-servidor) que hace `push` al Vault tras escribir notas.
+
+### 4.5 Idempotencia
+Cada nota lleva en su frontmatter:
+- `id`: UUIDv5 derivado de `call_id` + `chunk_id` (determinista)
+- `content_hash`: SHA-256 del cuerpo
+- `source_id`: referencia al call+timestamp original
+
+Reingestar la misma llamada produce los mismos `id`s; el Vault Writer hace *upsert* por `id`.
+
+### 4.6 Prompt engineering del extractor
+Plantilla en `src/enigma/extract/prompts.py`. Estrategia:
+1. Chunking del transcript por ventanas de ~1.500 tokens con overlap.
+2. Por cada chunk: prompt que pide JSON con `[{title, body, tags, related_concepts}]`.
+3. Validación con Pydantic; reintentos hasta 3 si el JSON falla.
+4. Deduplicación posterior por similitud semántica > 0.92.
+
+### 4.7 Detección de wikilinks
+Cuando se crea una nota:
+1. Se embebe su cuerpo.
+2. Se buscan en Qdrant las top-5 notas más cercanas (umbral 0.78).
+3. Para cada candidato, un LLM evalúa si el enlace es semánticamente válido (no solo cercanía).
+4. Los que pasan se añaden como `[[wikilink]]` en sección dedicada.
+
+## 5. Modelo de despliegue
+
+Una sola máquina principal (la del admin) corre:
+- Qdrant (Docker)
+- Ollama (servicio local en puerto 11434)
+- API de Enigma (puerto 8077)
+- File watcher
+
+Los demás usuarios:
+- Instalan Obsidian
+- Clonan el Vault
+- Configuran `obsidian-git`
+- **Opcional:** la CLI de Enigma apuntando a la API del admin para ingerir audio
+
+## 6. Configuración
+
+Variables en `.env` (ver `.env.example`):
+
+```env
+# Paths
+ENIGMA_VAULT_PATH=C:/Users/manul/Enigma_V3/vault
+ENIGMA_DATA_PATH=C:/Users/manul/Enigma_V3/data
+
+# Ollama
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_LLM_MODEL=llama3.1:8b
+OLLAMA_EMBED_MODEL=nomic-embed-text
+
+# Qdrant
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+QDRANT_COLLECTION=enigma_notes
+
+# Whisper
+WHISPER_MODEL=large-v3
+WHISPER_DEVICE=auto   # cpu | cuda | auto
+WHISPER_LANGUAGE=es
+
+# API
+API_HOST=127.0.0.1
+API_PORT=8077
+
+# Behavior
+LINK_SIMILARITY_THRESHOLD=0.78
+DEDUP_SIMILARITY_THRESHOLD=0.92
+```
+
+## 7. Roadmap por fases
+
+Detalle en `TASKS.md`. Resumen:
+
+- **Fase 0 — Bootstrap (1 semana):** repo, CI, Docker, dependencias, "hello world" del pipeline.
+- **Fase 1 — MVP audio → notas (3 semanas):** ingest → transcribe → extract → write a `.md`. Sin links, sin búsqueda.
+- **Fase 2 — Grafo y vectorización (2 semanas):** Qdrant, wikilinks automáticos, file watcher.
+- **Fase 3 — Búsqueda semántica + RAG (2 semanas):** consulta en lenguaje natural con citas.
+- **Fase 4 — Agente analítico (3 semanas):** resúmenes, decisiones, contradicciones, tareas.
+- **Fase 5 — Endurecimiento (2 semanas):** packaging Windows, docs, onboarding del equipo.
+
+Total estimado: **~13 semanas** de trabajo enfocado.
+
+## 8. Riesgos técnicos y mitigaciones
+
+| Riesgo | Probabilidad | Impacto | Mitigación |
+|---|---|---|---|
+| Whisper falla con audio de baja calidad | Media | Alto | Soporte para preprocesado (denoise, normalización) |
+| LLM local extrae notas pobres | Media | Alto | Iterar prompts, fallback a modelos mayores (70B) o cloud opcional |
+| Conflictos Git en el Vault | Media | Medio | Estrategia de merge `.gitattributes`; carpeta `inbox/` separada por usuario |
+| Qdrant deriva del Vault | Baja | Alto | Script `reindex.py` reconstruye Qdrant desde cero |
+| Rendimiento en CPU sin GPU | Alta | Medio | Modelos pequeños por defecto (Whisper medium, Llama 8B); GPU opcional |
+
+## 9. Definición de "Done" para cada feature
+
+Un feature no se da por terminado hasta que:
+- [ ] Tiene tests unitarios e integración (cobertura ≥ 70% del código nuevo)
+- [ ] `ruff`, `black`, `mypy` pasan sin warnings
+- [ ] `SPEC.md` o spec del feature actualizada
+- [ ] `TASKS.md` marca las tareas como done
+- [ ] Funciona end-to-end con un audio de prueba en español
+- [ ] Hay un párrafo en `README.md` que lo describe

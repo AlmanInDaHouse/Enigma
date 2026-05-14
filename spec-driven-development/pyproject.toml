@@ -1,0 +1,123 @@
+[project]
+name = "enigma"
+version = "0.1.0"
+description = "Segundo cerebro conversacional para equipos pequeños — Zettelkasten + RAG local"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "AlmanInDaHouse" }
+]
+license = { text = "Proprietary" }
+keywords = ["zettelkasten", "rag", "obsidian", "whisper", "ollama", "knowledge-management"]
+
+dependencies = [
+    # Core
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-dotenv>=1.0",
+
+    # API + CLI
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "typer[all]>=0.12",
+
+    # Audio + transcripción
+    "faster-whisper>=1.0",
+    "pyannote.audio>=3.3",
+    "torch>=2.3",
+    "torchaudio>=2.3",
+    "soundfile>=0.12",
+
+    # LLM / embeddings
+    "ollama>=0.3",
+    "llama-index>=0.10",
+    "llama-index-llms-ollama>=0.2",
+    "llama-index-embeddings-ollama>=0.2",
+    "llama-index-vector-stores-qdrant>=0.2",
+
+    # Vector DB
+    "qdrant-client>=1.10",
+
+    # Notas / Markdown
+    "python-frontmatter>=1.1",
+    "markdown-it-py>=3.0",
+
+    # Utilidades
+    "watchdog>=4.0",
+    "apscheduler>=3.10",
+    "httpx>=0.27",
+    "rich>=13.7",
+    "structlog>=24.1",
+    "python-slugify>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "black>=24.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "ipython>=8.25",
+]
+
+[project.scripts]
+enigma = "enigma.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/enigma"]
+
+# ─── Ruff ──────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "UP", "S", "C90", "RUF"]
+ignore = ["S101"]  # asserts ok en tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "N"]
+
+# ─── Black ─────────────────────────────────────────────────────
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+# ─── Mypy ──────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["pyannote.*", "faster_whisper.*"]
+ignore_missing_imports = true
+
+# ─── Pytest ────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers --cov=enigma --cov-report=term-missing"
+markers = [
+    "integration: integration tests requiring Qdrant/Ollama running",
+    "slow: tests slower than 5s",
+]
+
+# ─── Coverage ──────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["src/enigma"]
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
