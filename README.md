@@ -1,5 +1,7 @@
 # Enigma 🧩
 
+[![CI](https://github.com/AlmanInDaHouse/Enigma/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AlmanInDaHouse/Enigma/actions/workflows/ci.yml)
+
 > **Segundo cerebro conversacional para equipos pequeños.**
 > Cada llamada → notas atómicas conectadas en Obsidian + búsqueda semántica local.
 

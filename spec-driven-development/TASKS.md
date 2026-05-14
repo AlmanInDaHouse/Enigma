@@ -36,7 +36,7 @@
   - *Aceptación:* `pytest` arranca sin errores de import
 - [x] **T-009** Smoke test: `enigma --version` desde CLI
   - *Aceptación:* Typer responde con versión definida
-- [ ] **T-010** Configurar GitHub Actions: lint + tests en cada push a `main`
+- [x] **T-010** Configurar GitHub Actions: lint + tests en cada push a `main`
   - *Aceptación:* badge verde en `README.md`
 
 ---
@@ -182,7 +182,7 @@ Actualizar manualmente al cierre de cada fase:
 
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
-| 0 | 10 | 0 | 0% | — |
+| 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
 | 1 | 15 | 0 | 0% | — |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
