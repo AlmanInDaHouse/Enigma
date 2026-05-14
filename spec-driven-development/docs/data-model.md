@@ -12,33 +12,39 @@ Representa una llamada grabada que ingresa al sistema.
 
 ```python
 class Call(BaseModel):
-    id: UUID                      # UUIDv4
+    id: UUID                      # UUIDv5(NAMESPACE, content_hash) — determinista por contenido
+    content_hash: str             # SHA-256 hex (64 chars, lowercase) del fichero original
     title: str | None             # opcional, editable
-    audio_path: Path              # ruta al fichero
+    audio_path: Path              # ruta al fichero copiado (data/audio/{id}.{ext})
     duration_seconds: float
     language: str                 # ISO-639-1, p.ej. "es"
-    recorded_at: datetime         # cuándo se grabó la llamada
+    recorded_at: datetime         # cuándo se grabó (mtime del fichero original)
     ingested_at: datetime         # cuándo entró a Enigma
     participants: list[str]       # nombres conocidos (manual o derivado)
     status: Literal["pending", "transcribing", "extracting", "done", "failed"]
     error: str | None
 ```
 
+> **Idempotencia (RF-10).** `id` se deriva de `content_hash` mediante `uuid5(NAMESPACE, content_hash)`, por lo que reingerir el mismo fichero produce siempre el mismo `id` y permite *upsert* en SQLite usando `content_hash` como clave única alternativa.
+
 ### Esquema SQLite
 
 ```sql
 CREATE TABLE calls (
     id            TEXT PRIMARY KEY,
+    content_hash  TEXT NOT NULL UNIQUE,    -- SHA-256 hex; UNIQUE garantiza idempotencia
     title         TEXT,
     audio_path    TEXT NOT NULL,
-    duration      REAL NOT NULL,
-    language      TEXT NOT NULL,
+    duration      REAL NOT NULL DEFAULT 0.0,
+    language      TEXT NOT NULL DEFAULT 'es',
     recorded_at   TEXT NOT NULL,
     ingested_at   TEXT NOT NULL,
-    participants  TEXT,             -- JSON array
-    status        TEXT NOT NULL,
+    participants  TEXT NOT NULL DEFAULT '[]',    -- JSON array de strings
+    status        TEXT NOT NULL DEFAULT 'pending',
     error         TEXT
 );
+
+CREATE INDEX idx_calls_content_hash ON calls(content_hash);
 ```
 
 ---

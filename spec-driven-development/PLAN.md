@@ -114,6 +114,9 @@ Enigma_V3/
 │       ├── cli.py                  # Typer entrypoint
 │       ├── api.py                  # FastAPI app
 │       ├── config.py               # Pydantic Settings
+│       ├── db/                     # SQLite shared infra (calls, transcripts, jobs)
+│       │   ├── sqlite.py           # get_connection + init_schema
+│       │   └── calls.py            # CRUD para la tabla `calls`
 │       ├── models/                 # Pydantic models
 │       │   ├── call.py
 │       │   ├── transcript.py

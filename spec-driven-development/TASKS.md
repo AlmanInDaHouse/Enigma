@@ -47,8 +47,8 @@
 
 ### Ingesta y transcripción
 
-- [ ] **T-101** Implementar `enigma.ingest.audio.register_call(path) -> Call` (RF-01)
-  - *Aceptación:* copia el audio a `data/audio/{call_id}.wav` y crea registro en SQLite
+- [x] **T-101** Implementar `enigma.ingest.audio.register_call(path) -> Call` (RF-01)
+  - *Aceptación:* copia el audio a `data/audio/{call_id}.{ext}` (extensión preservada) y crea registro en SQLite
 - [ ] **T-102** Wrapper de `faster-whisper` en `enigma.ingest.transcriber` (RF-02)
   - *Aceptación:* transcribe un audio de prueba en español con WER ≤ 15%
 - [ ] **T-103** Integrar diarización con `pyannote.audio` (RF-03)
@@ -183,7 +183,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 0 | 0% | — |
+| 1 | 15 | 1 | 7% | — |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
