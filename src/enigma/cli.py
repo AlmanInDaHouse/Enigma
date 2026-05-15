@@ -6,9 +6,11 @@ Expone:
 - `enigma ingest <audio> [--title T]` → pipeline end-to-end (T-113).
 - `enigma list calls` → tabla de llamadas registradas (T-114).
 - `enigma list notes [--last 7d]` → tabla de notas del Vault (T-114).
+- `enigma search "<query>"` → notas top-k por similitud semántica (T-301).
+- `enigma ask "<pregunta>"` → respuesta RAG con citas (T-303).
 
-Subcomandos adicionales (ask, etc.) se añaden en fases posteriores y se
-enganchan al `app` global definido aquí.
+Subcomandos adicionales se añaden en fases posteriores y se enganchan al
+`app` global definido aquí.
 """
 
 import re
@@ -183,6 +185,51 @@ def search(
             created,
         )
     console.print(table)
+
+
+@app.command()
+def ask(
+    question: Annotated[
+        str,
+        typer.Argument(help="Pregunta en lenguaje natural sobre el Vault."),
+    ],
+    top_k: Annotated[
+        int,
+        typer.Option(
+            "--top-k",
+            "-k",
+            min=1,
+            help="Número de notas a usar como contexto.",
+        ),
+    ] = 5,
+) -> None:
+    """Responde una pregunta con RAG sobre el Vault, citando las notas (T-303)."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    from enigma.agent.rag import RagError, answer_question
+
+    console = Console()
+    if not question.strip():
+        raise typer.BadParameter("La pregunta no puede estar vacía.")
+
+    try:
+        result = answer_question(question, top_k=top_k)
+    except RagError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print()
+    console.print(Panel(result.answer, title="Respuesta", border_style="cyan"))
+
+    if result.citations:
+        console.print("\n[bold]Notas citadas:[/bold]")
+        for citation in result.citations:
+            # markup=False: los corchetes de `[[wikilink]]` son literales,
+            # no markup de Rich.
+            console.print(f"  • [[{citation.stem}]] — {citation.title}", markup=False)
+    else:
+        console.print("\n[yellow]La respuesta no cita ninguna nota del Vault.[/yellow]")
 
 
 # ── enigma list ─────────────────────────────────────────────────────────────

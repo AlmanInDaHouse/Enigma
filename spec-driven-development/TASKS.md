@@ -130,8 +130,9 @@
 - [x] **T-302** Pipeline RAG con LlamaIndex: query → embed → retrieve → LLM → respuesta con citas
   - *Aceptación:* respuesta cita `[[Nota X]]` y los ficheros existen
   - **Nota:** `answer_question()` en `src/enigma/agent/rag.py`: `search_notes` (T-301) → `load_notes_by_ids` (nuevo en `vault/reader.py`, una pasada O(N) por el Vault para recuperar cuerpos) → `build_rag_messages` (`agent/prompts.py`, nuevo) → `ollama.chat` con `qwen2.5:7b`. Las citas se parsean de los `[[wikilink]]` de la respuesta y se casan contra los stems de las notas de contexto: una cita solo cuenta si apunta a una nota recuperada (que existe en disco) → garantiza el criterio "los ficheros existen"; un wikilink alucinado se descarta. Retrieval vacío → respuesta determinista sin llamar al LLM. **Desviación: implementado SIN LlamaIndex** (retrieve+generate a mano sobre Qdrant+Ollama; CONSTITUTION §6 — LlamaIndex envolvería componentes ya controlados). Documentado en `PLAN.md §4.1`. Verificado con `test_rag_real.py` (integration): la respuesta cita un `[[stem]]` que resuelve a un `.md` real del Vault.
-- [ ] **T-303** `enigma ask "<pregunta>"` con respuesta conversacional
+- [x] **T-303** `enigma ask "<pregunta>"` con respuesta conversacional
   - *Aceptación:* sobre 10 preguntas de prueba, ≥ 7 respuestas son útiles (eval manual)
+  - **Nota:** comando `enigma ask "<pregunta>" [--top-k/-k N]` en `cli.py`, capa fina sobre `answer_question` (T-302). Render: respuesta en panel Rich + lista de "Notas citadas" (`[[stem]] — título`, impreso con `markup=False` porque los corchetes son literales). `RagError` → mensaje rojo + `Exit(1)`; pregunta vacía → `BadParameter`. La aceptación "≥7/10 útiles" es **eval manual** y queda pendiente de un corpus de notas reales en el Vault (no automatizable; mismo patrón que el ">70%" de T-205). Tests CLI con `answer_question` mockeado verifican la mecánica del comando.
 - [ ] **T-304** Reranking opcional con cross-encoder local (mejora calidad top-k)
   - *Aceptación:* recall@5 sube vs baseline en test set
 - [ ] **T-305** Endpoint REST `POST /ask` en FastAPI (RF-14)
@@ -197,6 +198,6 @@ Actualizar manualmente al cierre de cada fase:
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
-| 3 | 5 | 2 | 40% | T-302 implementado sin LlamaIndex (RAG a mano sobre Qdrant+Ollama). Ver `PLAN.md §4.1`. |
+| 3 | 5 | 3 | 60% | T-302 implementado sin LlamaIndex (RAG a mano sobre Qdrant+Ollama). Ver `PLAN.md §4.1`. T-303: eval manual ≥7/10 pendiente de corpus real. |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |
