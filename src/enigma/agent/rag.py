@@ -115,35 +115,54 @@ def answer_question(
     top_k: int = 5,
     model: str | None = None,
     vault_path: Path | None = None,
+    rerank: bool | None = None,
 ) -> RagAnswer:
     """Responde `question` con RAG sobre el Vault y devuelve la respuesta + citas.
 
+    Con reranking activo (T-304) se recupera un pool ampliado
+    (`settings.rerank_candidate_pool`), se reordena con el cross-encoder local
+    y se conservan las `top_k` mejores. Sin reranking se recuperan `top_k`
+    directamente de la búsqueda vectorial.
+
     Args:
         question: Pregunta en lenguaje natural.
-        top_k: Número de notas a recuperar como contexto.
+        top_k: Número de notas a usar como contexto.
         model: Override del LLM. Default `settings.ollama_llm_model`.
         vault_path: Raíz del Vault. Default `settings.enigma_vault_path`.
+        rerank: Fuerza on/off el reranking. `None` → `settings.rerank_enabled`.
 
     Returns:
-        `RagAnswer` con el texto, las citas verificadas y las notas recuperadas.
+        `RagAnswer` con el texto, las citas verificadas y las notas usadas
+        como contexto (`sources`, en el orden final tras el reranking).
 
     Raises:
         RagError: si el LLM falla al generar la respuesta.
     """
-    sources = search_notes(question, top_k=top_k)
-    notes_by_id = load_notes_by_ids({s.note_id for s in sources}, vault_path)
+    rerank_on = settings.rerank_enabled if rerank is None else rerank
+    pool = settings.rerank_candidate_pool if rerank_on else top_k
+
+    candidates = search_notes(question, top_k=pool)
+    notes_by_id = load_notes_by_ids({s.note_id for s in candidates}, vault_path)
+    source_by_id = {s.note_id: s for s in candidates}
 
     # Notas de contexto en el orden de relevancia del retrieval; solo las que
     # existen en disco (un punto Qdrant huérfano no rompe el RAG).
-    context_notes = [notes_by_id[s.note_id] for s in sources if s.note_id in notes_by_id]
+    context_notes = [notes_by_id[s.note_id] for s in candidates if s.note_id in notes_by_id]
     if not context_notes:
         _log.info("RAG sin contexto utilizable para la pregunta")
         return RagAnswer(
             question=question,
             answer=NO_CONTEXT_ANSWER,
             citations=[],
-            sources=sources,
+            sources=candidates,
         )
+
+    if rerank_on:
+        from enigma.vector.reranker import rerank_notes
+
+        context_notes = rerank_notes(question, context_notes)
+    context_notes = context_notes[:top_k]
+    sources = [source_by_id[note.id] for note in context_notes]
 
     messages = build_rag_messages(question, context_notes)
     answer = _llm_answer(messages, model=model or settings.ollama_llm_model)

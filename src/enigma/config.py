@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     link_top_k_candidates: int = 5
     link_llm_validation: bool = True
 
+    # ── Reranking (cross-encoder local, opcional) ───────────────────────
+    rerank_enabled: bool = False
+    rerank_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+    rerank_candidate_pool: int = 20
+
     # ── Deduplicación intra-llamada ─────────────────────────────────────
     dedup_similarity_threshold: float = 0.92
 

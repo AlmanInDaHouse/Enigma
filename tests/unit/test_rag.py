@@ -181,3 +181,57 @@ def ollama_response_error() -> Exception:
     import ollama
 
     return ollama.ResponseError("boom")
+
+
+# ── reranking (T-304) ───────────────────────────────────────────────────────
+
+
+def test_rerank_off_by_default_skips_reranker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Con `rerank_enabled=False` no se llama al reranker y se recupera top_k."""
+    monkeypatch.setattr("enigma.config.settings.rerank_enabled", False)
+    note = _note()
+    with (
+        patch("enigma.agent.rag.search_notes", return_value=[_source(note.id)]) as mock_search,
+        patch("enigma.agent.rag.load_notes_by_ids", return_value={note.id: note}),
+        patch("enigma.agent.rag._client", return_value=_llm_client("ok")),
+        patch("enigma.vector.reranker.rerank_notes") as mock_rerank,
+    ):
+        answer_question("pregunta", top_k=5)
+    assert mock_search.call_args.kwargs["top_k"] == 5
+    mock_rerank.assert_not_called()
+
+
+def test_rerank_on_retrieves_pool_and_reranks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Con rerank activo: recupera el pool ampliado y pasa por el reranker."""
+    monkeypatch.setattr("enigma.config.settings.rerank_enabled", True)
+    monkeypatch.setattr("enigma.config.settings.rerank_candidate_pool", 20)
+    notes = [_note(title=f"N{i}") for i in range(3)]
+    sources = [_source(n.id, title=n.title) for n in notes]
+    notes_by_id = {n.id: n for n in notes}
+    # El reranker invierte el orden: N2, N1, N0.
+    reranked = list(reversed(notes))
+    with (
+        patch("enigma.agent.rag.search_notes", return_value=sources) as mock_search,
+        patch("enigma.agent.rag.load_notes_by_ids", return_value=notes_by_id),
+        patch("enigma.agent.rag._client", return_value=_llm_client("ok")),
+        patch("enigma.vector.reranker.rerank_notes", return_value=reranked) as mock_rerank,
+    ):
+        result = answer_question("pregunta", top_k=2)
+    assert mock_search.call_args.kwargs["top_k"] == 20
+    mock_rerank.assert_called_once()
+    # Solo las top_k=2 tras el rerank; en el nuevo orden (N2 primero).
+    assert [s.title for s in result.sources] == ["N2", "N1"]
+
+
+def test_rerank_param_overrides_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El parámetro `rerank=True` activa el reranker aunque el setting esté off."""
+    monkeypatch.setattr("enigma.config.settings.rerank_enabled", False)
+    note = _note()
+    with (
+        patch("enigma.agent.rag.search_notes", return_value=[_source(note.id)]),
+        patch("enigma.agent.rag.load_notes_by_ids", return_value={note.id: note}),
+        patch("enigma.agent.rag._client", return_value=_llm_client("ok")),
+        patch("enigma.vector.reranker.rerank_notes", return_value=[note]) as mock_rerank,
+    ):
+        answer_question("pregunta", rerank=True)
+    mock_rerank.assert_called_once()

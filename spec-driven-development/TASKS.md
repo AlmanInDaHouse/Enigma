@@ -133,8 +133,9 @@
 - [x] **T-303** `enigma ask "<pregunta>"` con respuesta conversacional
   - *Aceptación:* sobre 10 preguntas de prueba, ≥ 7 respuestas son útiles (eval manual)
   - **Nota:** comando `enigma ask "<pregunta>" [--top-k/-k N]` en `cli.py`, capa fina sobre `answer_question` (T-302). Render: respuesta en panel Rich + lista de "Notas citadas" (`[[stem]] — título`, impreso con `markup=False` porque los corchetes son literales). `RagError` → mensaje rojo + `Exit(1)`; pregunta vacía → `BadParameter`. La aceptación "≥7/10 útiles" es **eval manual** y queda pendiente de un corpus de notas reales en el Vault (no automatizable; mismo patrón que el ">70%" de T-205). Tests CLI con `answer_question` mockeado verifican la mecánica del comando.
-- [ ] **T-304** Reranking opcional con cross-encoder local (mejora calidad top-k)
+- [x] **T-304** Reranking opcional con cross-encoder local (mejora calidad top-k)
   - *Aceptación:* recall@5 sube vs baseline en test set
+  - **Nota:** `rerank_notes()` en `src/enigma/vector/reranker.py` usa el cross-encoder `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (multilingüe, `sentence-transformers`) para reordenar un pool de candidatos por relevancia query↔cuerpo. Cableado en `answer_question` (`agent/rag.py`): con `rerank` activo recupera `rerank_candidate_pool` (20) → reordena → trunca a `top_k`. **Opcional, `rerank_enabled=False` por defecto** — el RAG funciona sin él. Dependencia nueva `sentence-transformers` (open source, modelo local descargado 1 vez; justificada en `PLAN.md §4.8`). Import perezoso de `sentence-transformers` (dep pesada). El recall@5 formal requiere un test set etiquetado que no existe todavía; verificado el **mecanismo** con `test_reranker_real.py` (integration): el cross-encoder corrige un orden baseline deliberadamente malo (la nota relevante sube de la última posición al top). Métrica formal pendiente de corpus etiquetado (mismo patrón que T-205/T-303).
 - [ ] **T-305** Endpoint REST `POST /ask` en FastAPI (RF-14)
   - *Aceptación:* curl al endpoint devuelve JSON con respuesta + citas
 
@@ -198,6 +199,6 @@ Actualizar manualmente al cierre de cada fase:
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
-| 3 | 5 | 3 | 60% | T-302 implementado sin LlamaIndex (RAG a mano sobre Qdrant+Ollama). Ver `PLAN.md §4.1`. T-303: eval manual ≥7/10 pendiente de corpus real. |
+| 3 | 5 | 4 | 80% | T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |

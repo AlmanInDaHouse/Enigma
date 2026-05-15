@@ -15,33 +15,27 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "python-dotenv>=1.0",
-
     # API + CLI
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "typer>=0.12",
-
     # Audio + transcripción
     "faster-whisper>=1.0",
     "pyannote.audio>=3.3",
     "torch>=2.3",
     "torchaudio>=2.3",
     "soundfile>=0.12",
-
     # LLM / embeddings
     "ollama>=0.3",
     "llama-index>=0.10",
     "llama-index-llms-ollama>=0.2",
     "llama-index-embeddings-ollama>=0.2",
     "llama-index-vector-stores-qdrant>=0.2",
-
     # Vector DB
     "qdrant-client>=1.10",
-
     # Notas / Markdown
     "python-frontmatter>=1.1",
     "markdown-it-py>=3.0",
-
     # Utilidades
     "watchdog>=4.0",
     "apscheduler>=3.10",
@@ -49,6 +43,7 @@ dependencies = [
     "rich>=13.7",
     "structlog>=24.1",
     "python-slugify>=8.0",
+    "sentence-transformers>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -111,6 +106,7 @@ module = [
     "slugify",
     "frontmatter",
     "qdrant_client.*",
+    "sentence_transformers.*",
 ]
 ignore_missing_imports = true
 

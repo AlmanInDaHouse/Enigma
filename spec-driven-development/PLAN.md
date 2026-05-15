@@ -139,6 +139,7 @@ Enigma_V3/
 │       ├── vector/
 │       │   ├── qdrant_client.py    # CRUD sobre la colección Qdrant
 │       │   ├── embedder.py         # embeddings con nomic-embed-text
+│       │   ├── reranker.py         # reranking con cross-encoder local
 │       │   └── reindexer.py        # reindexado completo Vault → Qdrant
 │       ├── agent/
 │       │   ├── rag.py                # pipeline RAG (retrieve + LLM + citas)
@@ -215,6 +216,14 @@ Cuando se crea una nota:
 2. Se buscan en Qdrant las top-5 notas más cercanas (umbral 0.78).
 3. Para cada candidato, un LLM evalúa si el enlace es semánticamente válido (no solo cercanía).
 4. Los que pasan se añaden como `[[wikilink]]` en sección dedicada.
+
+### 4.8 Reranking del retrieval (T-304)
+La búsqueda vectorial usa embeddings *bi-encoder* (`nomic-embed-text`): rápida pero la query y el documento se codifican por separado. Para mejorar la calidad del top-k del RAG se añade un paso de reranking **opcional** con un *cross-encoder* local — `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, multilingüe, vía `sentence-transformers`.
+
+- **Por qué un cross-encoder y no más embeddings:** el cross-encoder procesa el par `(query, cuerpo)` junto, capturando relevancia que dos embeddings independientes no ven. No es indexable, por eso solo se aplica sobre un pool ya recuperado (`rerank_candidate_pool`, default 20) y se truncan las `top_k` mejores.
+- **Dependencia (CONSTITUTION §6):** `sentence-transformers` es open source y 100% local — el modelo se descarga una vez de HuggingFace (~120 MB) y luego corre offline, igual que los modelos de Ollama o pyannote. No introduce ninguna API externa en el flujo.
+- **Opcional:** `rerank_enabled = False` por defecto. El RAG funciona sin reranking; se activa vía `.env` cuando el corpus crece y la calidad del top-k lo justifica.
+- Implementación en `src/enigma/vector/reranker.py`; cableado en `agent/rag.py::answer_question`.
 
 ## 5. Modelo de despliegue
 
