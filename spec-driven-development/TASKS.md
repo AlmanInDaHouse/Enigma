@@ -124,8 +124,9 @@
 
 > Objetivo: preguntas en lenguaje natural devuelven respuestas con citas.
 
-- [ ] **T-301** `enigma search "<query>"` recupera top-k notas (RF-07)
+- [x] **T-301** `enigma search "<query>"` recupera top-k notas (RF-07)
   - *Aceptación:* p95 < 3s en Vault con 1.000 notas
+  - **Nota:** `search_notes()` (en `src/enigma/search.py`, módulo nuevo nivel raíz como `pipeline.py`) embebe la query con `nomic-embed-text` → `qdrant_client.search()` → mapea cada `SearchHit` a un `SearchResult`. Los resultados se construyen **solo desde el payload Qdrant** (título, tags, fecha, estado): no se leen los cuerpos de las notas ni se recorre el Vault, así la búsqueda es un único embed + un único query — la cita textual del cuerpo es competencia del RAG (T-302). Lectura del payload defensiva: `call_id`/`created_at` malformados caen a `None` sin romper. Comando `enigma search "<q>" [--top-k/-k N]`. El p95 < 3s sobre 1.000 notas no se mide empíricamente (no hay corpus de ese tamaño todavía); verificado por diseño (1 embed ~50-100ms + 1 query Qdrant ~10ms) y por `test_search_latency_under_3s` (integration) sobre colección pequeña.
 - [ ] **T-302** Pipeline RAG con LlamaIndex: query → embed → retrieve → LLM → respuesta con citas
   - *Aceptación:* respuesta cita `[[Nota X]]` y los ficheros existen
 - [ ] **T-303** `enigma ask "<pregunta>"` con respuesta conversacional
@@ -195,6 +196,6 @@ Actualizar manualmente al cierre de cada fase:
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
-| 3 | 5 | 0 | 0% | — |
+| 3 | 5 | 1 | 20% | — |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |

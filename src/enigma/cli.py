@@ -136,6 +136,55 @@ def orphans() -> None:
     console.print(f"Recién marcadas #orphan:   {report.newly_tagged}")
 
 
+@app.command()
+def search(
+    query: Annotated[
+        str,
+        typer.Argument(help="Consulta en lenguaje natural."),
+    ],
+    top_k: Annotated[
+        int,
+        typer.Option(
+            "--top-k",
+            "-k",
+            min=1,
+            help="Número de notas a recuperar.",
+        ),
+    ] = 5,
+) -> None:
+    """Busca notas del Vault por similitud semántica (RF-07)."""
+    from rich.console import Console
+    from rich.table import Table
+
+    from enigma.search import search_notes
+
+    console = Console()
+    if not query.strip():
+        raise typer.BadParameter("La consulta no puede estar vacía.")
+
+    results = search_notes(query, top_k=top_k)
+    if not results:
+        console.print("[yellow]Sin resultados para esa consulta.[/yellow]")
+        return
+
+    table = Table(title=f"Resultados ({len(results)})")
+    table.add_column("#", style="dim", no_wrap=True)
+    table.add_column("Score", style="cyan", no_wrap=True)
+    table.add_column("Título")
+    table.add_column("Tags")
+    table.add_column("Creada", no_wrap=True)
+    for rank, result in enumerate(results, start=1):
+        created = result.created_at.strftime("%Y-%m-%d %H:%M") if result.created_at else "—"
+        table.add_row(
+            str(rank),
+            f"{result.score:.3f}",
+            result.title,
+            ", ".join(result.tags) or "—",
+            created,
+        )
+    console.print(table)
+
+
 # ── enigma list ─────────────────────────────────────────────────────────────
 
 _LAST_WINDOW_RE = re.compile(r"^(\d+)\s*([dhwm])$")
