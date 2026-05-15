@@ -149,8 +149,9 @@
 - [x] **T-401** Resumen ejecutivo de una llamada (RF-08)
   - *Aceptación:* `enigma summarize call <id>` produce resumen estructurado en `vault/calls/`
   - **Nota:** `summarize_call()` en `agent/summarizer.py`: carga el `Call` (SQLite) + su `Transcript` persistido → `build_summary_messages` (`agent/prompts.py`) → `ollama.chat` con `format="json"` → `CallSummary` (tldr + key_points + topics) → nota Markdown en `vault/calls/`. La nota-resumen es un **fichero separado** del índice de llamada (`{índice}-summary.md`, `type: call-summary`), porque el índice lo regenera el pipeline en cada re-ingest; enlaza al índice con `[[wikilink]]`. Idempotente (filename determinista). Comando `enigma summarize call <id>` acepta UUID completo o **prefijo corto** (los 8 hex de `enigma list calls`); prefijo ambiguo → error. **Decisión:** resumen single-shot sobre el transcript completo (no map-reduce) — entra en el contexto de `qwen2.5:7b` para llamadas ~1h; map-reduce para llamadas más largas queda como mejora futura (CONSTITUTION §7). Verificado con `test_summarizer_real.py` (integration, Ollama real).
-- [ ] **T-402** Extracción de decisiones tomadas
+- [x] **T-402** Extracción de decisiones tomadas
   - *Aceptación:* nota índice `decisions.md` listada cronológicamente con enlaces al origen
+  - **Nota:** `build_decision_index()` en `agent/decisions.py`: recorre `list_calls` (SQLite) → por cada llamada con transcript persistido, `extract_decisions_from_call` (LLM `format="json"`, single-shot) → agrega y reescribe `vault/decisions.md`. Decisiones agrupadas por llamada, **orden cronológico inverso** (más reciente arriba — coherente con `list calls`); cada grupo enlaza al índice de llamada con `[[wikilink]]`. `decisions.md` vive en la **raíz del Vault** (índice transversal tipo MOC, no nota atómica ni de llamada). Comando `enigma decisions`. Idempotente (filename fijo, reescritura completa). Coste: N llamadas LLM por ejecución (1 por call); aceptado para decenas de llamadas, sin caché. Fuente = transcripts (decisión del usuario). Un fallo de extracción en una llamada se loguea y se omite — no bloquea el índice. Verificado con `test_decisions_real.py` (integration, Ollama real).
 - [ ] **T-403** Extracción de tareas pendientes
   - *Aceptación:* nota `tasks.md` con responsables (cuando identificables) y fecha de mención
 - [ ] **T-404** Detección de contradicciones (RF-09)
@@ -202,5 +203,5 @@ Actualizar manualmente al cierre de cada fase:
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
-| 4 | 6 | 1 | 17% | T-401: resumen single-shot (no map-reduce); nota-resumen separada del índice de llamada. |
+| 4 | 6 | 2 | 33% | T-401: resumen single-shot (no map-reduce); nota-resumen separada del índice de llamada. T-402: `decisions.md` desde transcripts (N llamadas LLM, sin caché). |
 | 5 | 6 | 0 | 0% | — |

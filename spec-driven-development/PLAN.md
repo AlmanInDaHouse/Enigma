@@ -144,6 +144,7 @@ Enigma_V3/
 │       ├── agent/
 │       │   ├── rag.py                # pipeline RAG (retrieve + LLM + citas)
 │       │   ├── prompts.py            # prompts del RAG / agente
+│       │   ├── decisions.py          # extracción de decisiones → decisions.md
 │       │   ├── summarizer.py
 │       │   ├── contradictions.py
 │       │   └── tasks_extractor.py

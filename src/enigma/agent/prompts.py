@@ -130,3 +130,59 @@ def build_summary_messages(
         {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
+
+
+# ── Extracción de decisiones de una llamada (T-402) ─────────────────────────
+
+DECISIONS_SYSTEM_PROMPT = """\
+Eres un asistente que extrae las DECISIONES tomadas en una llamada de equipo.
+
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma exacta:
+{
+  "decisions": ["...", "..."]
+}
+
+REGLAS:
+1. Una decisión es un acuerdo o resolución concreta que el equipo ADOPTA
+   ("decidimos", "vamos a", "queda aprobado", "acordamos").
+2. NO incluyas opiniones, ideas sueltas, dudas ni temas debatidos sin
+   conclusión. Solo lo que se decide.
+3. Cada decisión: una frase concisa y autocontenida, en español.
+4. Si en la llamada no se tomó ninguna decisión, devuelve `{"decisions": []}`.
+"""
+
+
+DECISIONS_USER_TEMPLATE = """\
+Título de la llamada: {call_title}
+Idioma: {language}
+
+TRANSCRIPCIÓN:
+{transcript_text}
+"""
+
+
+def build_decisions_messages(
+    transcript_text: str,
+    *,
+    call_title: str,
+    language: str = "es",
+) -> list[dict[str, str]]:
+    """Construye los `messages` para extraer decisiones (Ollama chat, JSON).
+
+    Args:
+        transcript_text: Transcripción completa de la llamada, ya unida.
+        call_title: Título de la llamada (o un texto de relleno si no tiene).
+        language: Código ISO-639-1 del idioma de la llamada.
+
+    Returns:
+        Lista de dos dicts: `{"role": "system", ...}` y `{"role": "user", ...}`.
+    """
+    user_content = DECISIONS_USER_TEMPLATE.format(
+        call_title=call_title,
+        language=language,
+        transcript_text=transcript_text,
+    )
+    return [
+        {"role": "system", "content": DECISIONS_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]

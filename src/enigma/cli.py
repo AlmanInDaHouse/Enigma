@@ -10,6 +10,7 @@ Expone:
 - `enigma ask "<pregunta>"` → respuesta RAG con citas (T-303).
 - `enigma serve` → arranca la API REST (`POST /ask`) con uvicorn (T-305).
 - `enigma summarize call <id>` → resumen ejecutivo de una llamada (T-401).
+- `enigma decisions` → regenera el índice de decisiones del corpus (T-402).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -326,6 +327,27 @@ def summarize_call_command(
     console.print(f"  • TL;DR: {result.summary.tldr}")
     console.print(f"  • {len(result.summary.key_points)} punto(s) clave.")
     console.print(f"  • Nota: {result.summary_path}")
+
+
+@app.command()
+def decisions() -> None:
+    """Regenera `vault/decisions.md`: índice de decisiones del corpus (T-402)."""
+    from rich.console import Console
+
+    from enigma.agent.decisions import DecisionsError, build_decision_index
+
+    console = Console()
+    try:
+        result = build_decision_index()
+    except DecisionsError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print("[green]✓[/green] Índice de decisiones regenerado.")
+    console.print(f"  • Llamadas escaneadas:    {result.calls_scanned}")
+    console.print(f"  • Llamadas con decisiones: {result.calls_with_decisions}")
+    console.print(f"  • Decisiones totales:      [bold]{len(result.decisions)}[/bold]")
+    console.print(f"  • Índice: {result.index_path}")
 
 
 # ── enigma list ─────────────────────────────────────────────────────────────
