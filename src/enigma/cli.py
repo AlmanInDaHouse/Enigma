@@ -11,6 +11,7 @@ Expone:
 - `enigma serve` → arranca la API REST (`POST /ask`) con uvicorn (T-305).
 - `enigma summarize call <id>` → resumen ejecutivo de una llamada (T-401).
 - `enigma decisions` → regenera el índice de decisiones del corpus (T-402).
+- `enigma tasks` → regenera el índice de tareas pendientes del corpus (T-403).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -347,6 +348,27 @@ def decisions() -> None:
     console.print(f"  • Llamadas escaneadas:    {result.calls_scanned}")
     console.print(f"  • Llamadas con decisiones: {result.calls_with_decisions}")
     console.print(f"  • Decisiones totales:      [bold]{len(result.decisions)}[/bold]")
+    console.print(f"  • Índice: {result.index_path}")
+
+
+@app.command()
+def tasks() -> None:
+    """Regenera `vault/tasks.md`: índice de tareas pendientes del corpus (T-403)."""
+    from rich.console import Console
+
+    from enigma.agent.tasks_extractor import TasksError, build_task_index
+
+    console = Console()
+    try:
+        result = build_task_index()
+    except TasksError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print("[green]✓[/green] Índice de tareas regenerado.")
+    console.print(f"  • Llamadas escaneadas:  {result.calls_scanned}")
+    console.print(f"  • Llamadas con tareas:  {result.calls_with_tasks}")
+    console.print(f"  • Tareas totales:       [bold]{len(result.tasks)}[/bold]")
     console.print(f"  • Índice: {result.index_path}")
 
 

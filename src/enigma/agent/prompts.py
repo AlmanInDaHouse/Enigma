@@ -186,3 +186,64 @@ def build_decisions_messages(
         {"role": "system", "content": DECISIONS_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
+
+
+# ── Extracción de tareas pendientes de una llamada (T-403) ──────────────────
+
+TASKS_SYSTEM_PROMPT = """\
+Eres un asistente que extrae las TAREAS PENDIENTES mencionadas en una llamada
+de equipo (acciones por hacer, compromisos, "to-dos").
+
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma exacta:
+{
+  "tasks": [
+    {"statement": "...", "assignee": "..."},
+    {"statement": "...", "assignee": null}
+  ]
+}
+
+REGLAS:
+1. Una tarea es una acción concreta pendiente de ejecutar ("hay que...",
+   "me encargo de...", "queda pendiente...", "tenemos que...").
+2. `statement`: la acción, en una frase concisa y autocontenida, en español.
+3. `assignee`: el nombre de la persona responsable si se identifica en la
+   llamada; usa `null` si no se menciona ningún responsable claro.
+4. NO incluyas decisiones ya cerradas, opiniones ni temas debatidos.
+5. Si no hay ninguna tarea pendiente, devuelve `{"tasks": []}`.
+"""
+
+
+TASKS_USER_TEMPLATE = """\
+Título de la llamada: {call_title}
+Idioma: {language}
+
+TRANSCRIPCIÓN:
+{transcript_text}
+"""
+
+
+def build_tasks_messages(
+    transcript_text: str,
+    *,
+    call_title: str,
+    language: str = "es",
+) -> list[dict[str, str]]:
+    """Construye los `messages` para extraer tareas pendientes (Ollama chat, JSON).
+
+    Args:
+        transcript_text: Transcripción completa de la llamada, ya unida.
+        call_title: Título de la llamada (o un texto de relleno si no tiene).
+        language: Código ISO-639-1 del idioma de la llamada.
+
+    Returns:
+        Lista de dos dicts: `{"role": "system", ...}` y `{"role": "user", ...}`.
+    """
+    user_content = TASKS_USER_TEMPLATE.format(
+        call_title=call_title,
+        language=language,
+        transcript_text=transcript_text,
+    )
+    return [
+        {"role": "system", "content": TASKS_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]

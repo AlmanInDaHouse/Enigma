@@ -152,8 +152,9 @@
 - [x] **T-402** Extracción de decisiones tomadas
   - *Aceptación:* nota índice `decisions.md` listada cronológicamente con enlaces al origen
   - **Nota:** `build_decision_index()` en `agent/decisions.py`: recorre `list_calls` (SQLite) → por cada llamada con transcript persistido, `extract_decisions_from_call` (LLM `format="json"`, single-shot) → agrega y reescribe `vault/decisions.md`. Decisiones agrupadas por llamada, **orden cronológico inverso** (más reciente arriba — coherente con `list calls`); cada grupo enlaza al índice de llamada con `[[wikilink]]`. `decisions.md` vive en la **raíz del Vault** (índice transversal tipo MOC, no nota atómica ni de llamada). Comando `enigma decisions`. Idempotente (filename fijo, reescritura completa). Coste: N llamadas LLM por ejecución (1 por call); aceptado para decenas de llamadas, sin caché. Fuente = transcripts (decisión del usuario). Un fallo de extracción en una llamada se loguea y se omite — no bloquea el índice. Verificado con `test_decisions_real.py` (integration, Ollama real).
-- [ ] **T-403** Extracción de tareas pendientes
+- [x] **T-403** Extracción de tareas pendientes
   - *Aceptación:* nota `tasks.md` con responsables (cuando identificables) y fecha de mención
+  - **Nota:** `build_task_index()` en `agent/tasks_extractor.py`, gemelo estructural de T-402: recorre `list_calls` → `extract_tasks_from_call` (LLM `format="json"`) → reescribe `vault/tasks.md`. Cada tarea lleva `assignee` opcional (responsable, `null` si no se identifica); la fecha de mención es la `recorded_at` de la llamada, visible en la cabecera del grupo. Tareas renderizadas como checklist Markdown (`- [ ] enunciado — _responsable_`), agrupadas por llamada, orden cronológico inverso, con `[[wikilink]]` al índice de llamada. Comando `enigma tasks`. Idempotente; fallo de extracción por llamada se omite con warning. Verificado con `test_tasks_real.py` (integration, Ollama real).
 - [ ] **T-404** Detección de contradicciones (RF-09)
   - *Aceptación:* sobre un test set con contradicciones inyectadas, ≥ 60% detectadas
 - [ ] **T-405** Detección de ideas recurrentes (clustering temporal)
@@ -203,5 +204,5 @@ Actualizar manualmente al cierre de cada fase:
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
-| 4 | 6 | 2 | 33% | T-401: resumen single-shot (no map-reduce); nota-resumen separada del índice de llamada. T-402: `decisions.md` desde transcripts (N llamadas LLM, sin caché). |
+| 4 | 6 | 3 | 50% | T-401: resumen single-shot (no map-reduce); nota-resumen separada del índice de llamada. T-402: `decisions.md` desde transcripts (N llamadas LLM, sin caché). T-403: `tasks.md` análogo, con `assignee` opcional. |
 | 5 | 6 | 0 | 0% | — |
