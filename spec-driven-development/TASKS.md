@@ -87,8 +87,9 @@
   - *Aceptación:* un solo comando lleva de `.wav` a `.md` en el Vault
 - [x] **T-114** `enigma list calls` y `enigma list notes --last 7d`
   - *Aceptación:* salida tabulada legible
-- [ ] **T-115** Tests E2E con fixture de audio corto (30s)
+- [x] **T-115** Tests E2E con fixture de audio corto (30s)
   - *Aceptación:* `pytest tests/integration` verde
+  - **Nota:** `test_pipeline_e2e_structural` corre el pipeline completo sobre 30s de silencio (verifica que no lanza excepción + artefactos en disco). `test_pipeline_e2e_with_real_audio` exige ≥1 nota pero se salta con `skipif` hasta que se añada `tests/fixtures/audios/sample_es.wav` (grabación real en español del equipo).
 
 ---
 
@@ -186,7 +187,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 13 | 87% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-108 cubre dedup con heurística textual; embeddings reales llegan en Fase 2. T-103 (diarización) diferido pendiente de HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. |
+| 1 | 15 | 14 | 93% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-108 cubre dedup con heurística textual; embeddings reales llegan en Fase 2. **Único pendiente: T-103** (diarización) — bloqueado por HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. NB: HuggingFace SÍ funciona (Whisper descarga modelos OK); el bloqueo TLS afecta solo al CDN de Ollama (R2). |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
