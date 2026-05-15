@@ -9,6 +9,7 @@ Expone:
 - `enigma search "<query>"` → notas top-k por similitud semántica (T-301).
 - `enigma ask "<pregunta>"` → respuesta RAG con citas (T-303).
 - `enigma serve` → arranca la API REST (`POST /ask`) con uvicorn (T-305).
+- `enigma summarize call <id>` → resumen ejecutivo de una llamada (T-401).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -18,6 +19,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
+from uuid import UUID
 
 import typer
 
@@ -263,6 +265,67 @@ def serve(
         port=effective_port,
         log_level=settings.api_log_level,
     )
+
+
+# ── enigma summarize ────────────────────────────────────────────────────────
+
+summarize_app = typer.Typer(help="Generar resúmenes con el agente.", no_args_is_help=True)
+app.add_typer(summarize_app, name="summarize")
+
+
+def _resolve_call_id(id_or_prefix: str) -> UUID:
+    """Resuelve un UUID completo o un prefijo hex corto a un `call_id`.
+
+    `enigma list calls` muestra los 8 primeros hex del id; este helper acepta
+    ese prefijo (o cualquier prefijo, o el UUID completo).
+
+    Raises:
+        typer.BadParameter: si no hay ninguna coincidencia o si hay varias.
+    """
+    from enigma.db import calls as calls_db
+    from enigma.db.sqlite import get_connection
+
+    with get_connection() as conn:
+        all_calls = calls_db.list_calls(conn)
+
+    needle = id_or_prefix.strip().lower().replace("-", "")
+    matches = [call for call in all_calls if call.id.hex.startswith(needle)]
+
+    if not matches:
+        raise typer.BadParameter(f"Ninguna llamada con id/prefijo {id_or_prefix!r}.")
+    if len(matches) > 1:
+        ids = ", ".join(call.id.hex[:8] for call in matches)
+        raise typer.BadParameter(
+            f"Prefijo {id_or_prefix!r} ambiguo: coincide con {ids}. Usa más caracteres.",
+        )
+    return matches[0].id
+
+
+@summarize_app.command("call")
+def summarize_call_command(
+    call_id: Annotated[
+        str,
+        typer.Argument(help="ID de la llamada (UUID completo o prefijo corto)."),
+    ],
+) -> None:
+    """Genera el resumen ejecutivo de una llamada en `vault/calls/` (T-401)."""
+    from rich.console import Console
+
+    from enigma.agent.summarizer import SummarizationError, summarize_call
+
+    console = Console()
+    resolved = _resolve_call_id(call_id)
+
+    try:
+        result = summarize_call(resolved)
+    except SummarizationError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print(f"[green]✓[/green] Resumen de la llamada [bold]{resolved}[/bold] generado.")
+    console.print(f"  • TL;DR: {result.summary.tldr}")
+    console.print(f"  • {len(result.summary.key_points)} punto(s) clave.")
+    console.print(f"  • Nota: {result.summary_path}")
 
 
 # ── enigma list ─────────────────────────────────────────────────────────────

@@ -146,8 +146,9 @@
 
 > Objetivo: el sistema produce análisis transversal del corpus.
 
-- [ ] **T-401** Resumen ejecutivo de una llamada (RF-08)
+- [x] **T-401** Resumen ejecutivo de una llamada (RF-08)
   - *Aceptación:* `enigma summarize call <id>` produce resumen estructurado en `vault/calls/`
+  - **Nota:** `summarize_call()` en `agent/summarizer.py`: carga el `Call` (SQLite) + su `Transcript` persistido → `build_summary_messages` (`agent/prompts.py`) → `ollama.chat` con `format="json"` → `CallSummary` (tldr + key_points + topics) → nota Markdown en `vault/calls/`. La nota-resumen es un **fichero separado** del índice de llamada (`{índice}-summary.md`, `type: call-summary`), porque el índice lo regenera el pipeline en cada re-ingest; enlaza al índice con `[[wikilink]]`. Idempotente (filename determinista). Comando `enigma summarize call <id>` acepta UUID completo o **prefijo corto** (los 8 hex de `enigma list calls`); prefijo ambiguo → error. **Decisión:** resumen single-shot sobre el transcript completo (no map-reduce) — entra en el contexto de `qwen2.5:7b` para llamadas ~1h; map-reduce para llamadas más largas queda como mejora futura (CONSTITUTION §7). Verificado con `test_summarizer_real.py` (integration, Ollama real).
 - [ ] **T-402** Extracción de decisiones tomadas
   - *Aceptación:* nota índice `decisions.md` listada cronológicamente con enlaces al origen
 - [ ] **T-403** Extracción de tareas pendientes
@@ -201,5 +202,5 @@ Actualizar manualmente al cierre de cada fase:
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
-| 4 | 6 | 0 | 0% | — |
+| 4 | 6 | 1 | 17% | T-401: resumen single-shot (no map-reduce); nota-resumen separada del índice de llamada. |
 | 5 | 6 | 0 | 0% | — |
