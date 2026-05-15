@@ -15,6 +15,7 @@ from pathlib import Path
 
 from slugify import slugify
 
+from enigma.config import settings
 from enigma.models.note import Note
 from enigma.vault.frontmatter import render_note_markdown
 
@@ -53,3 +54,28 @@ def upsert_note(note: Note, *, vault_dir: Path) -> Path:
     target = vault_dir / note_filename(note)
     target.write_text(render_note_markdown(note), encoding="utf-8")
     return target
+
+
+def write_notes_to_inbox(
+    notes: list[Note],
+    *,
+    vault_path: Path | None = None,
+) -> list[Path]:
+    """Persiste cada nota en `<vault>/inbox/` vía `upsert_note` (T-111).
+
+    `inbox/` es la carpeta donde aterrizan las notas recién extraídas,
+    pendientes de revisión humana. Las notas validadas se mueven luego a
+    `notes/` actualizando `status` en su frontmatter (flujo manual en
+    Obsidian; ver `docs/architecture.md §5`).
+
+    Args:
+        notes: Lista de notas (output de `extract_notes_from_transcript`).
+        vault_path: Raíz del Vault. Por defecto `settings.enigma_vault_path`.
+
+    Returns:
+        Paths escritos en el mismo orden que `notes`. Lista vacía si `notes`
+        está vacía.
+    """
+    root = vault_path if vault_path is not None else settings.enigma_vault_path
+    inbox = root / "inbox"
+    return [upsert_note(note, vault_dir=inbox) for note in notes]
