@@ -1,0 +1,17 @@
+Buenos días a todos y bienvenidos a la sesión de onboarding de Enigma. Hoy os explico qué es esta herramienta y cómo vamos a trabajar con ella.
+
+Enigma es nuestro segundo cerebro de equipo. Coge las llamadas que grabamos y las convierte, de forma automática, en notas cortas dentro de Obsidian. Cada idea importante queda como una nota independiente, conectada con las ideas relacionadas de otras conversaciones. La gran ventaja es que el conocimiento del equipo deja de perderse: queda guardado y se puede buscar.
+
+Una cosa importante: Enigma es completamente local. La transcripción, el modelo de lenguaje y la base de datos corren en una máquina nuestra. Ninguna grabación sale a servicios externos. La privacidad está garantizada por diseño.
+
+El flujo de trabajo es sencillo. Grabamos una llamada, la procesamos con un comando, y las notas aparecen solas en Obsidian. Vuestro trabajo es revisar esas notas y consultar el conocimiento cuando lo necesitéis.
+
+Vamos con algunas decisiones que tomamos para el equipo. Primero: decidimos que cada uno revise su bandeja de entrada, el inbox, todos los lunes por la mañana. Segundo: acordamos que toda llamada se grabe siempre con un título descriptivo, porque ese título será el nombre de la llamada en el sistema. Y tercero: queda aprobado hacer una copia de seguridad del Vault todos los viernes antes de salir.
+
+Ahora repartamos las tareas pendientes de esta semana. Manuel se encarga de terminar la guía de usuario para los compañeros no técnicos. Ana revisará todas las notas huérfanas que tenemos acumuladas y decidirá cuáles conservar. Y necesitamos que alguien configure el plugin de sincronización, obsidian-git, en todos los ordenadores del equipo; que se ocupe Javier.
+
+Sobre la calidad de las grabaciones: hablad claro, por turnos, y evitad el ruido de fondo. Cuanto mejor sea el audio, mejores serán las notas que extrae Enigma. Un audio de mala calidad genera notas pobres.
+
+Por último, recordad que las notas que genera el sistema son borradores. Llegan a la bandeja de entrada y vosotros decidís si son correctas. Si una nota está bien, la movéis a la carpeta de notas validadas. Si está mal, la corregís o la borráis. El sistema mejora cuanto más lo cuidáis.
+
+Eso es todo por hoy. Cualquier duda, preguntádmela. Gracias y a trabajar.
