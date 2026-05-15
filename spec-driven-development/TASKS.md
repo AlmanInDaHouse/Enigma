@@ -105,8 +105,9 @@
 - [x] **T-203** Vectorizar todas las notas existentes con script `scripts/reindex.py`
   - *Aceptación:* Qdrant queda sincronizado con `vault/`
   - **Nota:** `reindex_vault()` (en `vector/reindexer.py`) devuelve un `ReindexReport` con métricas (notas/s, dim de vector, puntos en colección) para validar RNF-02/03. Idempotente: upsert por `note_id`.
-- [ ] **T-204** File watcher en `workers/watcher.py` que vectoriza al detectar cambios en `vault/`
-  - *Aceptación:* editar una nota en Obsidian re-vectoriza en < 5s
+- [x] **T-204** File watcher en `workers/watcher.py` que vectoriza al detectar cambios en `vault/`
+  - *Aceptación:* editar una nota en Obsidian re-vectoriza en < 5s *(verificado: `test_watcher_vectorizes_new_note_within_5s`)*
+  - **Nota:** comando `enigma watch` arranca el watcher. Borrar una nota elimina su vector si el watcher la había visto (cache `path → note_id`); huérfanas de antes del arranque se limpian en T-207 / reindex.
 - [ ] **T-205** Detección de wikilinks: top-5 vecinos + validación con LLM (RF-06)
   - *Aceptación:* > 70% de los links propuestos se mantienen tras revisión humana
 - [ ] **T-206** Inyectar wikilinks en sección dedicada de la nota
@@ -190,7 +191,7 @@ Actualizar manualmente al cierre de cada fase:
 |---|---|---|---|---|
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
-| 2 | 7 | 3 | 43% | — |
+| 2 | 7 | 4 | 57% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |

@@ -19,6 +19,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
 from enigma.config import settings
+from enigma.models.note import Note
 
 VECTOR_SIZE = 768
 """Dimensión de los embeddings de `nomic-embed-text`."""
@@ -32,6 +33,23 @@ class SearchHit(BaseModel):
     note_id: UUID
     score: float
     payload: dict[str, Any]
+
+
+def note_payload(note: Note) -> dict[str, Any]:
+    """Payload Qdrant de una nota (esquema de `data-model.md §5`).
+
+    `note_id` no va en el payload: es el `id` del punto. Lo demás sí, para
+    poder filtrar búsquedas por tags, call_id, status, etc.
+    """
+    return {
+        "title": note.title,
+        "tags": note.tags,
+        "call_id": str(note.source.call_id),
+        "created_at": note.created_at.isoformat(),
+        "speakers": note.source.speakers,
+        "status": note.status,
+        "content_hash": note.content_hash,
+    }
 
 
 @lru_cache(maxsize=1)

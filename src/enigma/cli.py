@@ -109,6 +109,19 @@ def ingest(
     console.print(f"  • Índice de llamada: {result.call_index_path}")
 
 
+@app.command()
+def watch() -> None:
+    """Observa el Vault y re-vectoriza notas al detectar cambios (Ctrl-C para parar)."""
+    from rich.console import Console
+
+    from enigma.workers.watcher import run_watcher
+
+    Console().print(
+        "[bold]Watcher activo.[/bold] Observando el Vault… (Ctrl-C para parar)",
+    )
+    run_watcher()
+
+
 # ── enigma list ─────────────────────────────────────────────────────────────
 
 _LAST_WINDOW_RE = re.compile(r"^(\d+)\s*([dhwm])$")

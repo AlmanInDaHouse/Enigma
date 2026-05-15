@@ -10,14 +10,17 @@ colección) — útiles para validar los RNF-02/03 del SPEC sin reinstrumentar.
 
 import time
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from enigma.models.note import Note
 from enigma.vault.reader import list_vault_notes, read_note
 from enigma.vector.embedder import EMBEDDING_DIM, embed_note
-from enigma.vector.qdrant_client import count, ensure_collection, upsert_vector
+from enigma.vector.qdrant_client import (
+    count,
+    ensure_collection,
+    note_payload,
+    upsert_vector,
+)
 
 
 class ReindexReport(BaseModel):
@@ -30,19 +33,6 @@ class ReindexReport(BaseModel):
     notes_per_second: float
     vector_dim: int
     collection_points: int
-
-
-def _note_payload(note: Note) -> dict[str, Any]:
-    """Payload Qdrant de una nota (esquema de `data-model.md §5`)."""
-    return {
-        "title": note.title,
-        "tags": note.tags,
-        "call_id": str(note.source.call_id),
-        "created_at": note.created_at.isoformat(),
-        "speakers": note.source.speakers,
-        "status": note.status,
-        "content_hash": note.content_hash,
-    }
 
 
 def reindex_vault(*, vault_path: Path | None = None) -> ReindexReport:
@@ -62,7 +52,7 @@ def reindex_vault(*, vault_path: Path | None = None) -> ReindexReport:
     start = time.perf_counter()
     for note in notes:
         vector = embed_note(note)
-        upsert_vector(note.id, vector, _note_payload(note))
+        upsert_vector(note.id, vector, note_payload(note))
     elapsed = time.perf_counter() - start
 
     return ReindexReport(
