@@ -65,8 +65,9 @@
   - *Aceptación:* test unitario verifica que un transcript de 10k tokens se divide correctamente
 - [x] **T-107** Implementar `extract/extractor.py` con cliente Ollama
   - *Aceptación:* devuelve `List[Note]` validados por Pydantic
-- [ ] **T-108** Deduplicación intra-llamada por similitud semántica > 0.92
+- [x] **T-108** Deduplicación intra-llamada por similitud semántica > 0.92
   - *Aceptación:* test con 2 notas casi idénticas las fusiona en 1
+  - **Nota:** Fase 1 usa heurística textual (SHA-256 + `difflib.SequenceMatcher` sobre títulos) porque `nomic-embed-text` está bloqueado por T-006. Fase 2 (T-201/T-202) reemplazará con similitud coseno sobre embeddings reales del cuerpo. El threshold `0.92` mantiene su semántica entre ambas estrategias.
 
 ### Vault Writer
 
@@ -184,7 +185,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 6 | 40% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-103 (diarización) diferido pendiente de HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. Validaciones empíricas con LLM/audio real corren con `pytest -m integration`. |
+| 1 | 15 | 7 | 47% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-108 cubre dedup con heurística textual; embeddings reales llegan en Fase 2. T-103 (diarización) diferido pendiente de HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |

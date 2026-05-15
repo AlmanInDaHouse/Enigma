@@ -27,6 +27,7 @@ from pydantic import ValidationError
 
 from enigma.config import settings
 from enigma.extract.chunker import TranscriptChunk, chunk_transcript
+from enigma.extract.dedup import dedupe_notes
 from enigma.extract.prompts import build_extraction_messages
 from enigma.models.note import Note, NoteSource
 from enigma.models.transcript import Transcript
@@ -216,11 +217,15 @@ def extract_notes_from_transcript(
     transcript: Transcript,
     *,
     model: str | None = None,
+    deduplicate: bool = True,
 ) -> list[Note]:
-    """Extrae notas de un transcript completo: chunkea + recorre + concatena.
+    """Extrae notas de un transcript completo: chunkea + recorre + concatena + dedup.
 
-    La deduplicación intra-llamada (T-108) se aplica en una pasada posterior;
-    aquí solo se concatenan los resultados de cada chunk en orden.
+    Con `deduplicate=True` (default) se aplica `dedupe_notes` al final (T-108):
+    elimina duplicados exactos por `content_hash` y fusiona títulos similares
+    por encima de `settings.dedup_similarity_threshold`. Pasar `False` permite
+    inspeccionar la salida cruda del LLM (útil para depurar overlap entre
+    chunks).
     """
     chunks = chunk_transcript(transcript)
     all_notes: list[Note] = []
@@ -233,4 +238,6 @@ def extract_notes_from_transcript(
                 model=model,
             )
         )
+    if deduplicate:
+        all_notes = dedupe_notes(all_notes)
     return all_notes
