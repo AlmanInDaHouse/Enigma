@@ -111,7 +111,6 @@ module = [
     "slugify",
     "frontmatter",
     "qdrant_client.*",
-    "watchdog.*",
 ]
 ignore_missing_imports = true
 

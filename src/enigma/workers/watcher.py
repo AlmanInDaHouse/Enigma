@@ -45,7 +45,7 @@ def vectorize_note_file(path: Path) -> UUID | None:
     return note.id
 
 
-class VaultEventHandler(FileSystemEventHandler):  # type: ignore[misc]  # watchdog sin stubs
+class VaultEventHandler(FileSystemEventHandler):
     """Handler watchdog: vectoriza `.md` creados/modificados, borra los eliminados."""
 
     def __init__(self) -> None:
