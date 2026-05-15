@@ -146,6 +146,7 @@ Enigma_V3/
 │       │   ├── prompts.py            # prompts del RAG / agente
 │       │   ├── decisions.py          # extracción de decisiones → decisions.md
 │       │   ├── themes.py             # ideas recurrentes → recurring-themes.md
+│       │   ├── serendipity.py        # conexiones no obvias → serendipity.md
 │       │   ├── summarizer.py
 │       │   ├── contradictions.py
 │       │   └── tasks_extractor.py
@@ -241,6 +242,13 @@ Una idea recurrente es un tema que reaparece en varias notas a lo largo del tiem
 - **Criterio de recurrencia:** un cluster es idea recurrente solo si tiene ≥ `recurring_min_notes` (3) notas Y provienen de ≥ `recurring_min_calls` (2) llamadas distintas. Lo segundo es el componente temporal: varias notas de una sola llamada son una discusión puntual, no recurrencia.
 - **Umbral:** `recurring_similarity_threshold = 0.68`. `nomic-embed-text` tiene un suelo de similitud alto (~0.60); medido en T-405, las notas del mismo tema caen en ~0.69-0.77 y el ruido en ~0.60-0.63 — de ahí 0.68 (más bajo que el 0.80 de contradicciones, que comparan afirmaciones casi idénticas).
 - El LLM nombra cada cluster cualificado; el resultado se agrega en `vault/recurring-themes.md` (`enigma themes`). Implementación en `src/enigma/agent/themes.py`.
+
+### 4.11 Serendipia: conexiones no obvias (T-406)
+El "modo serendipia" propone conexiones sorprendentes entre notas distantes — lo opuesto a los wikilinks (§4.7), que enlazan notas obvias.
+
+- **Banda de similitud media:** los pares candidatos no son los más similares (obvios, ya cubiertos por wikilinks) ni los más lejanos (ruido), sino los de una **ventana** `[serendipity_min_similarity, serendipity_max_similarity)` = `[0.63, 0.74)`. Mantenerse por debajo del umbral de wikilink (0.78) aproxima "conexiones nuevas".
+- **Juicio del LLM:** para cada par de la banda, el LLM decide si unirlas produce una idea genuinamente valiosa (analogía, causa común, oportunidad). Muy selectivo: ante la duda, `false`.
+- **Tope:** se confirman como máximo `serendipity_max_suggestions` (5) conexiones — los pares se evalúan en orden determinista y el proceso se detiene al llegar a 5. Resultado en `vault/serendipity.md` (`enigma serendipity`). Implementación en `src/enigma/agent/serendipity.py`.
 
 ## 5. Modelo de despliegue
 

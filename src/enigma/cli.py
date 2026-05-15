@@ -14,6 +14,7 @@ Expone:
 - `enigma tasks` → regenera el índice de tareas pendientes del corpus (T-403).
 - `enigma contradictions` → regenera el índice de contradicciones (T-404).
 - `enigma themes` → regenera el índice de ideas recurrentes (T-405).
+- `enigma serendipity` → regenera el índice de conexiones no obvias (T-406).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -407,6 +408,24 @@ def themes() -> None:
     console.print(f"  • Notas escaneadas:   {result.notes_scanned}")
     console.print(f"  • Clusters hallados:  {result.clusters_found}")
     console.print(f"  • Ideas recurrentes:  [bold]{len(result.themes)}[/bold]")
+    console.print(f"  • Índice: {result.index_path}")
+
+
+@app.command()
+def serendipity() -> None:
+    """Regenera `vault/serendipity.md`: conexiones no obvias entre notas (T-406)."""
+    from rich.console import Console
+
+    from enigma.agent.serendipity import build_serendipity_index
+
+    console = Console()
+    console.print("Buscando conexiones no obvias… (puede tardar según el Vault)")
+    result = build_serendipity_index()
+
+    console.print("[green]✓[/green] Índice de serendipia regenerado.")
+    console.print(f"  • Notas escaneadas:  {result.notes_scanned}")
+    console.print(f"  • Pares evaluados:   {result.pairs_evaluated}")
+    console.print(f"  • Conexiones:        [bold]{len(result.suggestions)}[/bold]")
     console.print(f"  • Índice: {result.index_path}")
 
 

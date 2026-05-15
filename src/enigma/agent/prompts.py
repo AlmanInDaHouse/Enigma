@@ -359,3 +359,70 @@ def build_theme_messages(notes_block: str) -> list[dict[str, str]]:
         {"role": "system", "content": THEME_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
+
+
+# ── Conexiones no obvias entre dos notas — serendipia (T-406) ───────────────
+
+SERENDIPITY_SYSTEM_PROMPT = """\
+Eres un asistente que busca conexiones NO OBVIAS pero valiosas entre dos
+notas atómicas de un equipo (modo serendipia).
+
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma exacta:
+{
+  "connection": true,
+  "insight": "..."
+}
+
+REGLAS:
+1. Hay conexión (`true`) solo si unir ambas notas produce una idea NUEVA y
+   genuinamente útil: una analogía, una causa común, una oportunidad, una
+   transferencia de una a otra.
+2. NO basta con que compartan palabras o tema: eso es obvio, no serendipia.
+   Tampoco vale una relación forzada o trivial.
+3. `insight`: si hay conexión, una frase que explique la idea que surge al
+   conectarlas; si no la hay, una frase breve indicándolo.
+4. Sé MUY selectivo: ante la duda, responde `false`. Es preferible no
+   sugerir nada que sugerir una conexión pobre.
+"""
+
+
+SERENDIPITY_USER_TEMPLATE = """\
+NOTA A
+Título: {title_a}
+Cuerpo: {body_a}
+
+NOTA B
+Título: {title_b}
+Cuerpo: {body_b}
+
+¿Hay una conexión no obvia y valiosa entre la nota A y la nota B?
+"""
+
+
+def build_serendipity_messages(
+    title_a: str,
+    body_a: str,
+    title_b: str,
+    body_b: str,
+) -> list[dict[str, str]]:
+    """Construye los `messages` para juzgar una conexión serendípica.
+
+    Args:
+        title_a: Título de la nota A.
+        body_a: Cuerpo de la nota A.
+        title_b: Título de la nota B.
+        body_b: Cuerpo de la nota B.
+
+    Returns:
+        Lista de dos dicts: `{"role": "system", ...}` y `{"role": "user", ...}`.
+    """
+    user_content = SERENDIPITY_USER_TEMPLATE.format(
+        title_a=title_a,
+        body_a=body_a,
+        title_b=title_b,
+        body_b=body_b,
+    )
+    return [
+        {"role": "system", "content": SERENDIPITY_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]

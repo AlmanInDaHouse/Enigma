@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     recurring_min_notes: int = 3
     recurring_min_calls: int = 2
 
+    # ── Serendipia: conexiones no obvias (T-406) ────────────────────────
+    serendipity_pool: int = 30
+    # Ventana de similitud "media": ni obvio (≥ umbral wikilink) ni ruido.
+    serendipity_min_similarity: float = 0.63
+    serendipity_max_similarity: float = 0.74
+    serendipity_max_suggestions: int = 5
+
     # ── Deduplicación intra-llamada ─────────────────────────────────────
     dedup_similarity_threshold: float = 0.92
 

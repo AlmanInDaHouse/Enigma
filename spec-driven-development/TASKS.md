@@ -161,8 +161,9 @@
 - [x] **T-405** Detección de ideas recurrentes (clustering temporal)
   - *Aceptación:* nota `recurring-themes.md` se regenera semanalmente
   - **Nota:** `build_recurring_themes_index()` en `agent/themes.py`. Clustering por **componentes conexas** del grafo de similitud (aristas = vecinos Qdrant sobre umbral; union-find puro, sin dependencias — descartados K-means y HDBSCAN/sklearn). Un cluster es idea *recurrente* si tiene ≥ `recurring_min_notes` (3) notas de ≥ `recurring_min_calls` (2) llamadas distintas (el componente temporal). El LLM nombra cada cluster cualificado → `vault/recurring-themes.md`. Comando `enigma themes`. **Umbral ajustado empíricamente a 0.68** (no 0.75): `nomic-embed-text` tiene suelo ~0.60; medido, mismo tema ~0.69-0.77, ruido ~0.60-0.63. La regeneración "semanal" es operativa (el usuario corre `enigma themes` o lo programa con cron/Task Scheduler); no se monta un daemon — el scheduling propio se aborda con backups (T-505). Estrategia en `PLAN.md §4.10`. Verificado con `test_themes_real.py` (integration).
-- [ ] **T-406** Sugerencias de conexiones no obvias entre notas distantes
+- [x] **T-406** Sugerencias de conexiones no obvias entre notas distantes
   - *Aceptación:* "modo serendipia" propone 5 conexiones nuevas/semana
+  - **Nota:** `build_serendipity_index()` en `agent/serendipity.py`. Lo opuesto a los wikilinks (T-205): los pares candidatos se toman de la **banda de similitud media** `[0.63, 0.74)` — ni obvios (≥ umbral wikilink) ni ruido. Mantenerse bajo el umbral de wikilink aproxima "conexiones nuevas" (no parseo los `## Conexiones` existentes — decisión de simplicidad). El LLM juzga cada par (muy selectivo); se confirman hasta `serendipity_max_suggestions` (5), evaluando los pares en orden determinista y parando al llegar a 5. Resultado en `vault/serendipity.md`, comando `enigma serendipity`. La cadencia "/semana" es operativa (correr el comando o programarlo). Estrategia en `PLAN.md §4.11`. Verificado con `test_serendipity_real.py` (integration): produce sugerencias, tope ≤5, fichero escrito.
 
 ---
 
@@ -206,5 +207,5 @@ Actualizar manualmente al cierre de cada fase:
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
-| 4 | 6 | 5 | 83% | T-401: resumen single-shot (no map-reduce). T-402: `decisions.md` desde transcripts (N llamadas LLM, sin caché). T-403: `tasks.md` análogo, con `assignee`. T-404: contradicciones con pares candidatos por vecindad Qdrant O(N·k), `PLAN.md §4.9`. T-405: ideas recurrentes por componentes conexas, umbral empírico 0.68, `PLAN.md §4.10`. |
+| 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 0 | 0% | — |
