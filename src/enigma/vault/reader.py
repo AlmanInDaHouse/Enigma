@@ -8,12 +8,14 @@ campos obligatorios) se ignoran silenciosamente.
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 import frontmatter as fm
 from pydantic import BaseModel, ConfigDict
 
 from enigma.config import settings
+from enigma.models.note import Note
 
 _DEFAULT_SUBDIRS = ("inbox", "notes")
 """Carpetas del Vault donde viven las notas atómicas."""
@@ -60,6 +62,59 @@ def read_note_summary(path: Path) -> NoteSummary | None:
             call_id=UUID(str(source["call_id"])),
         )
     except (KeyError, ValueError):
+        return None
+
+
+def _extract_body(content: str) -> str:
+    """Extrae el cuerpo de la nota del contenido Markdown (sin frontmatter).
+
+    `render_note_markdown` (T-109) produce `# {title}\n\n{body}\n\n## Origen…`.
+    El cuerpo es lo que va tras el H1 del título y antes de la primera
+    sección `##` (Origen, Conexiones, etc.).
+    """
+    before_sections = content.split("\n## ")[0].strip()
+    if before_sections.startswith("# "):
+        newline = before_sections.find("\n")
+        return before_sections[newline:].strip() if newline != -1 else ""
+    return before_sections
+
+
+def read_note(path: Path) -> Note | None:
+    """Lee un `.md` del Vault y reconstruye el `Note` completo (con `body`).
+
+    Devuelve `None` si el fichero no parsea o le faltan campos obligatorios
+    del frontmatter Enigma. A diferencia de `read_note_summary`, esta función
+    sí carga el cuerpo — necesaria para vectorizar (T-203) y para el RAG.
+    """
+    try:
+        post = fm.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+    meta = post.metadata
+    source = meta.get("source")
+    if not isinstance(source, dict):
+        return None
+
+    data: dict[str, Any] = {
+        "id": meta.get("id"),
+        "title": meta.get("title"),
+        "body": _extract_body(post.content),
+        "tags": list(meta.get("tags") or []),
+        "source": {
+            "call_id": source.get("call_id"),
+            "timestamp_start": source.get("timestamp_start"),
+            "timestamp_end": source.get("timestamp_end"),
+            "speakers": list(source.get("speakers") or []),
+        },
+        "content_hash": meta.get("content_hash"),
+        "status": meta.get("status", "draft"),
+        "extracted_by": meta.get("extracted_by"),
+        "created_at": meta.get("created_at"),
+    }
+    try:
+        return Note.model_validate(data)
+    except ValueError:
         return None
 
 

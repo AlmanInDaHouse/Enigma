@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from enigma.models.note import Note, NoteSource
-from enigma.vault.reader import list_vault_notes, read_note_summary
+from enigma.vault.reader import list_vault_notes, read_note, read_note_summary
 from enigma.vault.writer import upsert_note
 
 
@@ -112,3 +112,67 @@ def test_list_ignores_invalid_files(tmp_path: Path) -> None:
     (tmp_path / "inbox" / "ruido.md").write_text("sin frontmatter", encoding="utf-8")
     summaries = list_vault_notes(vault_path=tmp_path)
     assert [s.title for s in summaries] == ["Buena"]
+
+
+# ── read_note (Note completo, con body) ─────────────────────────────────────
+
+
+def test_read_note_roundtrip_recovers_full_note(tmp_path: Path) -> None:
+    """`upsert_note` escribe, `read_note` recupera el `Note` completo con body."""
+    body = "Los clubs de padel tienen alta densidad de socios activos."
+    original = Note(
+        id=uuid4(),
+        title="Estrategia de captación padel",
+        body=body,
+        tags=["estrategia", "padel"],
+        source=NoteSource(
+            call_id=uuid4(),
+            timestamp_start=12.5,
+            timestamp_end=48.0,
+            speakers=["Manuel"],
+        ),
+        content_hash=hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        status="validated",  # type: ignore[arg-type]
+        extracted_by="qwen2.5:7b",
+        created_at=datetime.now(tz=UTC),
+    )
+    path = upsert_note(original, vault_dir=tmp_path)
+
+    loaded = read_note(path)
+    assert loaded is not None
+    assert loaded.id == original.id
+    assert loaded.title == original.title
+    assert loaded.body == body
+    assert loaded.tags == ["estrategia", "padel"]
+    assert loaded.source.call_id == original.source.call_id
+    assert loaded.source.timestamp_start == 12.5
+    assert loaded.source.speakers == ["Manuel"]
+    assert loaded.content_hash == original.content_hash
+    assert loaded.status == "validated"
+    assert loaded.extracted_by == "qwen2.5:7b"
+
+
+def test_read_note_returns_none_for_plain_text(tmp_path: Path) -> None:
+    bad = tmp_path / "plain.md"
+    bad.write_text("Solo texto, sin frontmatter.", encoding="utf-8")
+    assert read_note(bad) is None
+
+
+def test_read_note_returns_none_when_source_missing(tmp_path: Path) -> None:
+    path = tmp_path / "nosource.md"
+    path.write_text(
+        f"---\nid: {uuid4()}\ntitle: Sin source\n"
+        "created_at: 2026-05-14T00:00:00+00:00\n---\n\n# Sin source\n\nbody\n",
+        encoding="utf-8",
+    )
+    assert read_note(path) is None
+
+
+def test_read_note_body_excludes_origen_section(tmp_path: Path) -> None:
+    """El body recuperado no incluye la sección `## Origen`."""
+    note = _note(title="Idea", body="Cuerpo limpio de la idea.")
+    path = upsert_note(note, vault_dir=tmp_path)
+    loaded = read_note(path)
+    assert loaded is not None
+    assert loaded.body == "Cuerpo limpio de la idea."
+    assert "Origen" not in loaded.body

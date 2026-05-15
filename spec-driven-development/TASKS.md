@@ -102,8 +102,9 @@
   - *Aceptación:* tests CRUD pasan contra Qdrant local
 - [x] **T-202** Embedder con Ollama (`nomic-embed-text`)
   - *Aceptación:* embebe nota en < 100ms en CPU *(verificado: `test_embed_text_real_latency_under_100ms_when_warm` pasa)*
-- [ ] **T-203** Vectorizar todas las notas existentes con script `scripts/reindex.py`
+- [x] **T-203** Vectorizar todas las notas existentes con script `scripts/reindex.py`
   - *Aceptación:* Qdrant queda sincronizado con `vault/`
+  - **Nota:** `reindex_vault()` (en `vector/reindexer.py`) devuelve un `ReindexReport` con métricas (notas/s, dim de vector, puntos en colección) para validar RNF-02/03. Idempotente: upsert por `note_id`.
 - [ ] **T-204** File watcher en `workers/watcher.py` que vectoriza al detectar cambios en `vault/`
   - *Aceptación:* editar una nota en Obsidian re-vectoriza en < 5s
 - [ ] **T-205** Detección de wikilinks: top-5 vecinos + validación con LLM (RF-06)
@@ -189,7 +190,7 @@ Actualizar manualmente al cierre de cada fase:
 |---|---|---|---|---|
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
-| 2 | 7 | 2 | 29% | — |
+| 2 | 7 | 3 | 43% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |

@@ -136,8 +136,9 @@ Enigma_V3/
 │       │   ├── reader.py           # lee notas del Vault para listados
 │       │   └── linker.py           # propone wikilinks
 │       ├── vector/
-│       │   ├── qdrant_client.py
-│       │   └── embedder.py
+│       │   ├── qdrant_client.py    # CRUD sobre la colección Qdrant
+│       │   ├── embedder.py         # embeddings con nomic-embed-text
+│       │   └── reindexer.py        # reindexado completo Vault → Qdrant
 │       ├── agent/
 │       │   ├── rag.py
 │       │   ├── summarizer.py
