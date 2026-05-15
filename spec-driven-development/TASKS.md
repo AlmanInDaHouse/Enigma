@@ -114,8 +114,9 @@
 - [x] **T-206** Inyectar wikilinks en sección dedicada de la nota
   - *Aceptación:* nota generada tiene `## Conexiones` con `[[links]]`
   - **Nota:** `apply_wikilinks()` en `vault/linker.py` re-renderiza la nota con `## Conexiones` entre el cuerpo y `## Origen`. Los wikilinks usan formato `[[stem|título]]` (Obsidian resuelve el stem = filename sin `.md`, muestra el título).
-- [ ] **T-207** Marcar notas huérfanas (sin links) con tag `#orphan` para revisión
+- [x] **T-207** Marcar notas huérfanas (sin links) con tag `#orphan` para revisión
   - *Aceptación:* dashboard CLI muestra count de huérfanas
+  - **Nota:** `mark_orphans()` en `vault/linker.py` recorre el Vault, detecta notas sin `[[wikilink]]` y les añade el tag `orphan` (CONSTITUTION §10). Comando `enigma orphans` reporta total / huérfanas / recién marcadas. Idempotente.
 
 ---
 
@@ -193,7 +194,7 @@ Actualizar manualmente al cierre de cada fase:
 |---|---|---|---|---|
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
-| 2 | 7 | 6 | 86% | — |
+| 2 | 7 | 7 | 100% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |

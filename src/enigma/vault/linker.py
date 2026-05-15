@@ -13,6 +13,7 @@ La inyección de los `[[wikilink]]` en el cuerpo de la nota es T-206.
 
 import json
 import logging
+import re
 from functools import lru_cache
 from pathlib import Path
 from uuid import UUID
@@ -22,11 +23,18 @@ from pydantic import BaseModel, ConfigDict
 
 from enigma.config import settings
 from enigma.models.note import Note
+from enigma.vault.reader import list_vault_notes, read_note
 from enigma.vault.writer import note_stem, upsert_note
 from enigma.vector.embedder import embed_note
 from enigma.vector.qdrant_client import search
 
 _log = logging.getLogger(__name__)
+
+_WIKILINK_RE = re.compile(r"\[\[[^\]]+\]\]")
+"""Detecta `[[wikilink]]` en el contenido Markdown de una nota."""
+
+_ORPHAN_TAG = "orphan"
+"""Tag con el que se marcan las notas sin conexiones (CONSTITUTION §10)."""
 
 _LINK_VALIDATION_SYSTEM = """\
 Eres un asistente que decide si dos notas atómicas estilo Zettelkasten deben
@@ -153,3 +161,56 @@ def apply_wikilinks(
     """
     links = [format_wikilink(s) for s in suggestions]
     return upsert_note(note, vault_dir=vault_dir, wikilinks=links)
+
+
+# ── Detección de notas huérfanas (T-207) ────────────────────────────────────
+
+
+class OrphanReport(BaseModel):
+    """Resultado de una pasada de `mark_orphans`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_notes: int
+    orphans: int
+    newly_tagged: int
+
+
+def has_wikilinks(markdown: str) -> bool:
+    """`True` si el contenido Markdown contiene al menos un `[[wikilink]]`."""
+    return _WIKILINK_RE.search(markdown) is not None
+
+
+def mark_orphans(vault_path: Path | None = None) -> OrphanReport:
+    """Marca con `#orphan` las notas del Vault sin ningún wikilink (CONSTITUTION §10).
+
+    Una nota huérfana es la que no participa en el grafo: ningún
+    `[[wikilink]]` en su contenido. Se le añade el tag `orphan` al
+    frontmatter para que entre en la cola de revisión.
+
+    Idempotente: una nota que ya tiene el tag `orphan` no se reescribe.
+
+    Returns:
+        `OrphanReport` con totales y cuántas se marcaron en esta pasada.
+    """
+    summaries = list_vault_notes(vault_path)
+
+    orphans = 0
+    newly_tagged = 0
+    for summary in summaries:
+        markdown = summary.path.read_text(encoding="utf-8")
+        if has_wikilinks(markdown):
+            continue
+        orphans += 1
+        note = read_note(summary.path)
+        if note is None or _ORPHAN_TAG in note.tags:
+            continue
+        tagged = note.model_copy(update={"tags": [*note.tags, _ORPHAN_TAG]})
+        upsert_note(tagged, vault_dir=summary.path.parent)
+        newly_tagged += 1
+
+    return OrphanReport(
+        total_notes=len(summaries),
+        orphans=orphans,
+        newly_tagged=newly_tagged,
+    )

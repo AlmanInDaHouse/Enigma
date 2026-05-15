@@ -122,6 +122,20 @@ def watch() -> None:
     run_watcher()
 
 
+@app.command()
+def orphans() -> None:
+    """Marca con #orphan las notas del Vault sin wikilinks y reporta el conteo."""
+    from rich.console import Console
+
+    from enigma.vault.linker import mark_orphans
+
+    console = Console()
+    report = mark_orphans()
+    console.print(f"Notas en el Vault:         {report.total_notes}")
+    console.print(f"Huérfanas (sin wikilinks): [yellow]{report.orphans}[/yellow]")
+    console.print(f"Recién marcadas #orphan:   {report.newly_tagged}")
+
+
 # ── enigma list ─────────────────────────────────────────────────────────────
 
 _LAST_WINDOW_RE = re.compile(r"^(\d+)\s*([dhwm])$")
