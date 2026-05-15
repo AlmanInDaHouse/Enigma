@@ -85,6 +85,13 @@ def test_search_returns_hits_with_payload(collection: str) -> None:
 
 
 @pytest.mark.integration
+def test_search_on_missing_collection_returns_empty() -> None:
+    """Buscar en una colección inexistente devuelve `[]`, no falla (T-305)."""
+    missing = f"enigma_test_missing_{uuid4().hex[:8]}"
+    assert search(_vec(0.5), top_k=5, collection=missing) == []
+
+
+@pytest.mark.integration
 def test_search_respects_top_k(collection: str) -> None:
     for i in range(5):
         upsert_vector(uuid4(), _vec(0.1 * (i + 1)), {"i": i}, collection=collection)

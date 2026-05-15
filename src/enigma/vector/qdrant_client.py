@@ -100,9 +100,17 @@ def search(
     client: QdrantClient | None = None,
     collection: str | None = None,
 ) -> list[SearchHit]:
-    """Devuelve las `top_k` notas más cercanas al vector de consulta."""
+    """Devuelve las `top_k` notas más cercanas al vector de consulta.
+
+    Si la colección no existe todavía (sistema recién instalado, sin
+    ninguna nota indexada) devuelve una lista vacía en vez de fallar — así
+    `enigma search` y el endpoint `/ask` responden con normalidad antes del
+    primer `ingest`/`reindex`.
+    """
     qdrant = client or get_client()
     name = collection or settings.qdrant_collection
+    if not qdrant.collection_exists(name):
+        return []
     response = qdrant.query_points(collection_name=name, query=vector, limit=top_k)
     return [
         SearchHit(

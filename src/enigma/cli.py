@@ -8,6 +8,7 @@ Expone:
 - `enigma list notes [--last 7d]` → tabla de notas del Vault (T-114).
 - `enigma search "<query>"` → notas top-k por similitud semántica (T-301).
 - `enigma ask "<pregunta>"` → respuesta RAG con citas (T-303).
+- `enigma serve` → arranca la API REST (`POST /ask`) con uvicorn (T-305).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -230,6 +231,38 @@ def ask(
             console.print(f"  • [[{citation.stem}]] — {citation.title}", markup=False)
     else:
         console.print("\n[yellow]La respuesta no cita ninguna nota del Vault.[/yellow]")
+
+
+@app.command()
+def serve(
+    host: Annotated[
+        str | None,
+        typer.Option("--host", help="Host de escucha. Default `settings.api_host`."),
+    ] = None,
+    port: Annotated[
+        int | None,
+        typer.Option("--port", help="Puerto de escucha. Default `settings.api_port`."),
+    ] = None,
+) -> None:
+    """Arranca la API REST de Enigma (endpoint `POST /ask`) con uvicorn (T-305)."""
+    import uvicorn
+    from rich.console import Console
+
+    from enigma.config import settings
+
+    effective_host = host or settings.api_host
+    effective_port = port or settings.api_port
+
+    Console().print(
+        f"[bold]API de Enigma[/bold] escuchando en "
+        f"http://{effective_host}:{effective_port} (Ctrl-C para parar)",
+    )
+    uvicorn.run(
+        "enigma.api:app",
+        host=effective_host,
+        port=effective_port,
+        log_level=settings.api_log_level,
+    )
 
 
 # ── enigma list ─────────────────────────────────────────────────────────────

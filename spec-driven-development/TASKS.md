@@ -136,8 +136,9 @@
 - [x] **T-304** Reranking opcional con cross-encoder local (mejora calidad top-k)
   - *Aceptación:* recall@5 sube vs baseline en test set
   - **Nota:** `rerank_notes()` en `src/enigma/vector/reranker.py` usa el cross-encoder `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (multilingüe, `sentence-transformers`) para reordenar un pool de candidatos por relevancia query↔cuerpo. Cableado en `answer_question` (`agent/rag.py`): con `rerank` activo recupera `rerank_candidate_pool` (20) → reordena → trunca a `top_k`. **Opcional, `rerank_enabled=False` por defecto** — el RAG funciona sin él. Dependencia nueva `sentence-transformers` (open source, modelo local descargado 1 vez; justificada en `PLAN.md §4.8`). Import perezoso de `sentence-transformers` (dep pesada). El recall@5 formal requiere un test set etiquetado que no existe todavía; verificado el **mecanismo** con `test_reranker_real.py` (integration): el cross-encoder corrige un orden baseline deliberadamente malo (la nota relevante sube de la última posición al top). Métrica formal pendiente de corpus etiquetado (mismo patrón que T-205/T-303).
-- [ ] **T-305** Endpoint REST `POST /ask` en FastAPI (RF-14)
+- [x] **T-305** Endpoint REST `POST /ask` en FastAPI (RF-14)
   - *Aceptación:* curl al endpoint devuelve JSON con respuesta + citas
+  - **Nota:** `src/enigma/api.py` deja de ser placeholder: app FastAPI con `POST /ask` (cuerpo `AskRequest`: `question`/`top_k`/`rerank`) y `GET /health`. `/ask` llama a `answer_question` (T-302) y serializa el `RagAnswer` — `answer` + `citations` + `sources` — a JSON directamente (ya es Pydantic). `RagError` → HTTP 503; pregunta en blanco → 422. Comando `enigma serve` arranca uvicorn en `settings.api_host:api_port`. **Hardening detectado en el smoke test:** `qdrant_client.search()` ahora devuelve `[]` si la colección no existe (sistema recién instalado sin `ingest`/`reindex`) en vez de un 500 — así `/ask` y `enigma search` responden con normalidad antes del primer indexado. Verificado con smoke manual (`/health` 200, `POST /ask` devuelve JSON con la forma respuesta+citas+fuentes).
 
 ---
 
@@ -199,6 +200,6 @@ Actualizar manualmente al cierre de cada fase:
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
-| 3 | 5 | 4 | 80% | T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. |
+| 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |
