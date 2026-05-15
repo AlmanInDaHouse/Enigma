@@ -171,8 +171,9 @@
 
 > Objetivo: el equipo de 6 personas puede usar Enigma sin necesidad del builder original.
 
-- [ ] **T-501** Script `bootstrap.ps1` para Windows: instala dependencias, Ollama, Docker, modelos
+- [x] **T-501** Script `bootstrap.ps1` para Windows: instala dependencias, Ollama, Docker, modelos
   - *Aceptación:* máquina virgen → Enigma corriendo en < 30 min
+  - **Nota:** `scripts/bootstrap.ps1` (PowerShell 5.1). 11 pasos: prerrequisitos → uv → Python 3.12 → `uv sync` → FFmpeg shared → Ollama → modelos (`qwen2.5:7b` + `nomic-embed-text`) → Docker Desktop → `.env` → Qdrant → verificación. Instala vía `winget` (transparente, sin `curl|iex`). **Idempotente**: cada paso comprueba antes de actuar; **nunca sobrescribe `.env`** (lo crea desde `.env.example` ajustando las rutas al repo). Flags: `-Check` (solo verificación, read-only) y `-SkipDocker`. Refresca el PATH de sesión tras cada `winget install`. El `<30 min` en máquina virgen no es testeable en CI; verificado: sintaxis con `[Parser]::ParseFile` + `bootstrap.ps1 -Check` corre limpio reportando todos los componentes. El script `.ps1` no pasa por pre-commit (los hooks son Python).
 - [ ] **T-502** Documentar setup en `docs/setup-windows.md`
 - [ ] **T-503** Documentar uso desde Obsidian para no-técnicos (`docs/usuario-final.md`)
 - [ ] **T-504** Métricas básicas: notas/día, calls procesadas, latencias (RNF-08)
@@ -208,4 +209,4 @@ Actualizar manualmente al cierre de cada fase:
 | 2 | 7 | 7 | 100% | — |
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
-| 5 | 6 | 0 | 0% | — |
+| 5 | 6 | 1 | 17% | T-501: `bootstrap.ps1` vía winget, idempotente, con `-Check`/`-SkipDocker`. |
