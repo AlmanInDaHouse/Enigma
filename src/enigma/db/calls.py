@@ -70,3 +70,33 @@ def find_by_content_hash(conn: sqlite3.Connection, content_hash: str) -> Call | 
     cur = conn.execute("SELECT * FROM calls WHERE content_hash = ?", (content_hash,))
     row = cur.fetchone()
     return _row_to_call(row) if row else None
+
+
+def update_status(
+    conn: sqlite3.Connection,
+    call_id: UUID,
+    status: str,
+    *,
+    error: str | None = None,
+) -> None:
+    """Actualiza `status` (y opcionalmente `error`) de un `Call`.
+
+    No verifica que el Call exista — si no existe la sentencia simplemente
+    no afecta filas. El caller debería garantizar el contrato.
+    """
+    conn.execute(
+        "UPDATE calls SET status = ?, error = ? WHERE id = ?",
+        (status, error, str(call_id)),
+    )
+    conn.commit()
+
+
+def list_calls(conn: sqlite3.Connection, *, limit: int | None = None) -> list[Call]:
+    """Lista todas las Calls ordenadas por `ingested_at` descendente."""
+    sql = "SELECT * FROM calls ORDER BY ingested_at DESC"
+    if limit is not None:
+        sql += " LIMIT ?"
+        cur = conn.execute(sql, (limit,))
+    else:
+        cur = conn.execute(sql)
+    return [_row_to_call(row) for row in cur.fetchall()]
