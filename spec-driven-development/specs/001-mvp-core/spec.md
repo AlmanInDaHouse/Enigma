@@ -40,7 +40,7 @@ $ enigma ingest C:\audios\brainstorm-padel.m4a --title "Brainstorm captación pa
 [1/4] Registrando llamada........................ ✓ call_id=3b9f7a2c
 [2/4] Transcribiendo (faster-whisper large-v3)... ✓ 47:12 → 4823 palabras
 [3/4] Diarizando (pyannote.audio)................ ✓ 3 hablantes
-[4/4] Extrayendo notas atómicas (llama3.1:8b).... ✓ 18 notas
+[4/4] Extrayendo notas atómicas (qwen2.5:7b).... ✓ 18 notas
 
 Notas creadas en C:\Users\manul\Enigma_V3\vault\inbox\
 Nota índice: vault/calls/2026-05-14-brainstorm-captacion-padel.md

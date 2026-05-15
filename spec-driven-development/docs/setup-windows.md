@@ -45,11 +45,11 @@ git clone git@github.com:AlmanInDaHouse/Enigma-Vault.git vault
 
 ```powershell
 # Tras instalar Ollama desde el .exe oficial:
-ollama pull llama3.1:8b
-ollama pull nomic-embed-text
+ollama pull qwen2.5:7b          # LLM por defecto (ver PLAN.md §1)
+ollama pull nomic-embed-text    # bloqueante T-006; embedder para Fase 2
 
 # Verificar
-ollama run llama3.1:8b "Hola, ¿estás listo?"
+ollama run qwen2.5:7b "Hola, ¿estás listo?"
 ```
 
 Ollama queda corriendo como servicio Windows en `http://localhost:11434`.

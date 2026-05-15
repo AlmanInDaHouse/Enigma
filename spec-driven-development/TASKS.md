@@ -28,8 +28,9 @@
   - *Aceptación:* commit con código mal formateado se bloquea
 - [x] **T-005** Crear `docker-compose.yml` con servicio Qdrant
   - *Aceptación:* `docker compose up qdrant` deja Qdrant respondiendo en `http://localhost:6333/dashboard`
-- [ ] **T-006** Instalar Ollama localmente y descargar `llama3.1:8b` + `nomic-embed-text`
-  - *Aceptación:* `ollama run llama3.1:8b "Hola"` responde
+- [ ] **T-006** Instalar Ollama localmente y descargar el LLM + embedder
+  - *Aceptación:* `ollama run <llm_model> "Hola"` responde **y** `nomic-embed-text` está disponible.
+  - **Estado:** parcial. Ollama instalado; `qwen2.5:7b` operativo como LLM por defecto (ver `PLAN.md §1` y commit T-107). `llama3.1:8b` opcional y `nomic-embed-text` bloqueante para Fase 2; ambos fallan en `ollama pull` por error TLS (`x509: certificate signed by unknown authority`) contra el CDN de Ollama; pendiente diagnosticar AV/cert store.
 - [x] **T-007** Crear `src/enigma/config.py` con `Pydantic Settings` cargando `.env`
   - *Aceptación:* `python -c "from enigma.config import settings; print(settings)"` imprime config
 - [x] **T-008** Crear estructura de carpetas según `PLAN.md` §3 con `__init__.py` en todos los paquetes
@@ -62,7 +63,7 @@
   - *Aceptación:* sobre 3 transcripts de prueba, produce entre 5-30 notas/hora *(validación estática completa; medición empírica de 5-30 notas/h queda para T-115 con LLM real)*
 - [x] **T-106** Implementar chunking con overlap del transcript
   - *Aceptación:* test unitario verifica que un transcript de 10k tokens se divide correctamente
-- [ ] **T-107** Implementar `extract/extractor.py` con cliente Ollama
+- [x] **T-107** Implementar `extract/extractor.py` con cliente Ollama
   - *Aceptación:* devuelve `List[Note]` validados por Pydantic
 - [ ] **T-108** Deduplicación intra-llamada por similitud semántica > 0.92
   - *Aceptación:* test con 2 notas casi idénticas las fusiona en 1
@@ -183,7 +184,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 5 | 33% | T-103 (diarización) diferido a pendiente de HF token + aceptación manual de términos del modelo `pyannote/speaker-diarization-3.1`. T-102 y T-105 verifican fuera de CI con LLM/audio real (`pytest -m integration` o medición empírica en T-115). |
+| 1 | 15 | 6 | 40% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-103 (diarización) diferido pendiente de HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. Validaciones empíricas con LLM/audio real corren con `pytest -m integration`. |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |

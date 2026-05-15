@@ -12,7 +12,7 @@
 | Lenguaje principal | **Python 3.11+** | Ecosistema maduro para IA/NLP; mismo lenguaje en todo el pipeline |
 | Transcripción | **faster-whisper** (CTranslate2) | 4× más rápido que whisper original; CPU-friendly; soporta español |
 | Diarización | **pyannote.audio** | Estándar de facto; modelos pre-entrenados |
-| LLM local | **Ollama** + Llama 3.1 8B / Mistral 7B | API REST sencilla, gestión de modelos automática |
+| LLM local | **Ollama** + Qwen 2.5 7B (default) | API REST sencilla, gestión de modelos automática. Llama 3.1 8B sigue siendo compatible si su pull queda desbloqueado (ver TASKS T-006) |
 | Embeddings | **Ollama** con `nomic-embed-text` | Local, 768 dim, buen español |
 | Vector DB | **Qdrant** (Docker) | Robusto, filtrado por metadatos, REST + gRPC |
 | Orquestación IA | **LlamaIndex** | Mejor abstracción para retrieval + agentes que LangChain para este caso |
@@ -233,7 +233,7 @@ ENIGMA_DATA_PATH=C:/Users/manul/Enigma_V3/data
 
 # Ollama
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_LLM_MODEL=llama3.1:8b
+OLLAMA_LLM_MODEL=qwen2.5:7b
 OLLAMA_EMBED_MODEL=nomic-embed-text
 
 # Qdrant

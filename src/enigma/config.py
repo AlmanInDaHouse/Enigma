@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # ── Ollama (LLM + embeddings) ───────────────────────────────────────
     ollama_host: str = "http://localhost:11434"
-    ollama_llm_model: str = "llama3.1:8b"
+    ollama_llm_model: str = "qwen2.5:7b"
     ollama_embed_model: str = "nomic-embed-text"
     ollama_timeout: int = 120
 

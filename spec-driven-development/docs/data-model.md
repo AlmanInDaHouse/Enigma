@@ -96,7 +96,7 @@ tags:
   - padel
 content_hash: 7a1f9b3e2d4c5a6b8e0d2c4f6a8b0d2e4f6a8b0d2e4f6a8b0d2e4f6a8b0d2e4f
 status: validated         # one of: draft | validated | archived
-extracted_by: llama3.1:8b
+extracted_by: qwen2.5:7b
 ---
 
 # Estrategia de captación para clubs de padel
