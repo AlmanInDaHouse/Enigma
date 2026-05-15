@@ -40,6 +40,17 @@ MAX_LLM_RETRIES = 3
 _DEFAULT_FALLBACK_TAG = "review-needed"
 """Tag que recibe una nota cuando el LLM no devuelve ninguno."""
 
+_WRAPPER_KEYS_TO_UNWRAP = (
+    "notes",
+    "notas",
+    "items",
+    "ideas",
+    "result",
+    "results",
+    "data",
+)
+"""Claves comunes con las que los LLMs envuelven el array; las desempaquetamos."""
+
 
 class ExtractionError(RuntimeError):
     """El LLM no produjo JSON válido tras `MAX_LLM_RETRIES` intentos."""
@@ -90,6 +101,39 @@ def _llm_call_json(messages: list[dict[str, str]], *, model: str) -> str:
     raise ExtractionError(
         f"LLM failed to produce valid JSON after {MAX_LLM_RETRIES} retries",
     ) from last_error
+
+
+def _normalize_to_note_list(parsed: object) -> list[dict[str, Any]]:
+    """Normaliza la respuesta del LLM a una lista plana de dicts.
+
+    Aunque el system prompt pide un array, los LLMs locales (incluido
+    qwen2.5:7b) a veces lo envuelven en un objeto. Aceptamos los shapes
+    razonables y rechazamos el resto.
+
+    Acepta:
+        - lista plana de dicts (caso ideal).
+        - dict con una de las claves de `_WRAPPER_KEYS_TO_UNWRAP` cuyo
+          valor sea una lista de dicts.
+        - dict que parezca una sola nota (tiene `title` y `body`) —
+          se devuelve como `[parsed]`.
+
+    Raises:
+        ExtractionError: si el shape no es reconocible.
+    """
+    if isinstance(parsed, list):
+        return [item for item in parsed if isinstance(item, dict)]
+
+    if isinstance(parsed, dict):
+        for key in _WRAPPER_KEYS_TO_UNWRAP:
+            value = parsed.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+        if "title" in parsed and "body" in parsed:
+            return [parsed]
+
+    raise ExtractionError(
+        f"LLM returned unrecognized JSON shape: {type(parsed).__name__}",
+    )
 
 
 def _raw_note_to_note(
@@ -148,17 +192,11 @@ def extract_notes_from_chunk(
     messages = build_extraction_messages(chunk.text)
     raw_content = _llm_call_json(messages, model=effective_model)
 
-    raw_notes = json.loads(raw_content)
-    if not isinstance(raw_notes, list):
-        raise ExtractionError(
-            f"Expected JSON array of notes, got {type(raw_notes).__name__}",
-        )
+    raw_notes = _normalize_to_note_list(json.loads(raw_content))
 
     now = datetime.now(tz=UTC)
     notes: list[Note] = []
     for raw in raw_notes:
-        if not isinstance(raw, dict):
-            continue
         try:
             note = _raw_note_to_note(
                 raw,

@@ -21,7 +21,8 @@ REGLAS:
 3. Título conciso, descriptivo, < 80 caracteres.
 4. NO incluyas relleno conversacional ("creo que", "pues entonces").
 5. Mantén el contenido factual; si es opinión, indícalo.
-6. Devuelve JSON válido con la lista de notas (array, no objeto).
+6. Devuelve EXCLUSIVAMENTE un array JSON. NO envuelvas el array en un objeto.
+   La salida debe empezar con `[` y terminar con `]`.
 
 FORMATO de salida obligatorio (JSON):
 [
@@ -36,6 +37,9 @@ FORMATO de salida obligatorio (JSON):
 ]
 
 Si el chunk no contiene ideas extraíbles, devuelve `[]`.
+
+NO devuelvas un objeto del tipo `{"notes": [...]}` ni `{"result": [...]}`.
+Devuelve directamente el array.
 """
 
 
