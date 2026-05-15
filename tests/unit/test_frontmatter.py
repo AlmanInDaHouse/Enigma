@@ -159,3 +159,28 @@ def test_markdown_round_trips_required_yaml_fields() -> None:
         "extracted_by",
     ):
         assert key in meta
+
+
+# ── sección ## Conexiones (wikilinks, T-206) ────────────────────────────────
+
+
+def test_markdown_without_wikilinks_has_no_conexiones() -> None:
+    md = render_note_markdown(_note())
+    assert "## Conexiones" not in md
+
+
+def test_markdown_empty_wikilinks_list_has_no_conexiones() -> None:
+    md = render_note_markdown(_note(), wikilinks=[])
+    assert "## Conexiones" not in md
+
+
+def test_markdown_with_wikilinks_adds_conexiones_section() -> None:
+    md = render_note_markdown(_note(), wikilinks=["[[a-1234|Nota A]]", "[[b-5678|Nota B]]"])
+    assert "## Conexiones" in md
+    assert "- [[a-1234|Nota A]]" in md
+    assert "- [[b-5678|Nota B]]" in md
+
+
+def test_markdown_conexiones_appears_before_origen() -> None:
+    md = render_note_markdown(_note(), wikilinks=["[[a-1234|Nota A]]"])
+    assert md.index("## Conexiones") < md.index("## Origen")

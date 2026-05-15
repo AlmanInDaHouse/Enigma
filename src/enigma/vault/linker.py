@@ -14,6 +14,7 @@ La inyección de los `[[wikilink]]` en el cuerpo de la nota es T-206.
 import json
 import logging
 from functools import lru_cache
+from pathlib import Path
 from uuid import UUID
 
 import ollama
@@ -21,6 +22,7 @@ from pydantic import BaseModel, ConfigDict
 
 from enigma.config import settings
 from enigma.models.note import Note
+from enigma.vault.writer import note_stem, upsert_note
 from enigma.vector.embedder import embed_note
 from enigma.vector.qdrant_client import search
 
@@ -122,3 +124,32 @@ def suggest_wikilinks(note: Note, *, model: str | None = None) -> list[WikilinkS
             )
         )
     return suggestions
+
+
+def format_wikilink(suggestion: WikilinkSuggestion) -> str:
+    """Construye el wikilink Obsidian `[[stem|título]]` de una sugerencia.
+
+    El `stem` (filename sin `.md`) es lo que Obsidian resuelve; el título
+    se muestra como texto del enlace — legible aunque el filename sea
+    `slug-shortid`.
+    """
+    stem = note_stem(suggestion.target_note_id, suggestion.target_title)
+    return f"[[{stem}|{suggestion.target_title}]]"
+
+
+def apply_wikilinks(
+    note: Note,
+    suggestions: list[WikilinkSuggestion],
+    *,
+    vault_dir: Path,
+) -> Path:
+    """Reescribe la nota en `vault_dir` con una sección `## Conexiones` (T-206).
+
+    Idempotente: re-renderiza la nota completa desde el `Note` + los
+    wikilinks, así que reaplicar reemplaza la sección, no la acumula.
+
+    Returns:
+        La ruta del fichero reescrito.
+    """
+    links = [format_wikilink(s) for s in suggestions]
+    return upsert_note(note, vault_dir=vault_dir, wikilinks=links)

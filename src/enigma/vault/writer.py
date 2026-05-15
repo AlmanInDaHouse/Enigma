@@ -12,6 +12,7 @@ produce el mismo path y el contenido se sobrescribe sin duplicar.
 """
 
 from pathlib import Path
+from uuid import UUID
 
 import yaml
 from slugify import slugify
@@ -31,6 +32,17 @@ _MAX_SLUG_LEN = 60
 """Tope para el slug; deja margen para `-<short_id>.md` sin pasar de 80 chars."""
 
 
+def note_stem(note_id: UUID, title: str) -> str:
+    """Nombre del fichero sin extensión: `{slug}-{short_id}`.
+
+    Función pura de `(note_id, title)`. Usado tanto por `note_filename`
+    como por los wikilinks (T-206), que necesitan el *stem* para apuntar
+    al fichero destino sin el `.md`.
+    """
+    slug = slugify(title, max_length=_MAX_SLUG_LEN, word_boundary=True) or _FALLBACK_SLUG
+    return f"{slug}-{note_id.hex[:SHORT_ID_LEN]}"
+
+
 def note_filename(note: Note) -> str:
     """Filename canónico de una nota: `{slug}-{short_id}.md`.
 
@@ -38,23 +50,30 @@ def note_filename(note: Note) -> str:
     `title` producen el mismo nombre. Esto es lo que hace que
     `upsert_note` sea idempotente.
     """
-    slug = slugify(note.title, max_length=_MAX_SLUG_LEN, word_boundary=True)
-    if not slug:
-        slug = _FALLBACK_SLUG
-    short_id = note.id.hex[:SHORT_ID_LEN]
-    return f"{slug}-{short_id}.md"
+    return f"{note_stem(note.id, note.title)}.md"
 
 
-def upsert_note(note: Note, *, vault_dir: Path) -> Path:
+def upsert_note(
+    note: Note,
+    *,
+    vault_dir: Path,
+    wikilinks: list[str] | None = None,
+) -> Path:
     """Escribe (o sobrescribe) la nota en `vault_dir/{note_filename(note)}`.
 
     Crea `vault_dir` si no existe. Devuelve la ruta del fichero escrito.
     Reescribir el mismo `note.id` con cuerpo distinto reemplaza el contenido
     en el mismo path; no se generan duplicados (RF-10).
+
+    Args:
+        note: Nota a persistir.
+        vault_dir: Carpeta destino.
+        wikilinks: Lista opcional de wikilinks ya formateados (`[[x|y]]`).
+            Si se pasa, la nota incluye una sección `## Conexiones` (T-206).
     """
     vault_dir.mkdir(parents=True, exist_ok=True)
     target = vault_dir / note_filename(note)
-    target.write_text(render_note_markdown(note), encoding="utf-8")
+    target.write_text(render_note_markdown(note, wikilinks=wikilinks), encoding="utf-8")
     return target
 
 

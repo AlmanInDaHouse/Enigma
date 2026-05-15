@@ -7,6 +7,7 @@ de candidatos y la validación LLM sin tocar Qdrant ni el modelo real.
 import hashlib
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
@@ -14,7 +15,12 @@ import pytest
 
 from enigma.config import settings
 from enigma.models.note import Note, NoteSource
-from enigma.vault.linker import WikilinkSuggestion, suggest_wikilinks
+from enigma.vault.linker import (
+    WikilinkSuggestion,
+    apply_wikilinks,
+    format_wikilink,
+    suggest_wikilinks,
+)
 from enigma.vector.qdrant_client import SearchHit
 
 
@@ -171,3 +177,49 @@ def test_suggest_empty_when_no_candidates() -> None:
         patch("enigma.vault.linker._client", return_value=_llm_client(True)),
     ):
         assert suggest_wikilinks(note) == []
+
+
+# ── format_wikilink ─────────────────────────────────────────────────────────
+
+
+def test_format_wikilink_uses_stem_and_title() -> None:
+    suggestion = WikilinkSuggestion(
+        target_note_id=UUID("3b9f7a2c-aaaa-4bbb-8ccc-ddddeeeeffff"),
+        target_title="Estrategia de captación padel",
+        score=0.9,
+    )
+    link = format_wikilink(suggestion)
+    assert link.startswith("[[")
+    assert link.endswith("|Estrategia de captación padel]]")
+    # El stem incluye el slug del título y el short id.
+    assert "estrategia-de-captacion-padel" in link
+    assert "3b9f7a2c" in link
+
+
+# ── apply_wikilinks ─────────────────────────────────────────────────────────
+
+
+def test_apply_wikilinks_writes_conexiones_section(tmp_path: Path) -> None:
+    note = _note()
+    suggestions = [
+        WikilinkSuggestion(target_note_id=uuid4(), target_title="Nota vecina", score=0.9),
+    ]
+    path = apply_wikilinks(note, suggestions, vault_dir=tmp_path)
+    content = path.read_text(encoding="utf-8")
+    assert "## Conexiones" in content
+    assert "|Nota vecina]]" in content
+
+
+def test_apply_wikilinks_empty_suggestions_no_section(tmp_path: Path) -> None:
+    path = apply_wikilinks(_note(), [], vault_dir=tmp_path)
+    assert "## Conexiones" not in path.read_text(encoding="utf-8")
+
+
+def test_apply_wikilinks_is_idempotent(tmp_path: Path) -> None:
+    note = _note()
+    suggestions = [
+        WikilinkSuggestion(target_note_id=uuid4(), target_title="V", score=0.9),
+    ]
+    apply_wikilinks(note, suggestions, vault_dir=tmp_path)
+    apply_wikilinks(note, suggestions, vault_dir=tmp_path)
+    assert len(list(tmp_path.glob("*.md"))) == 1

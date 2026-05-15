@@ -62,7 +62,7 @@ def render_frontmatter_yaml(note: Note) -> str:
     return dumped
 
 
-def render_note_markdown(note: Note) -> str:
+def render_note_markdown(note: Note, *, wikilinks: list[str] | None = None) -> str:
     """Renderiza la nota completa como Markdown: frontmatter + cuerpo + origen.
 
     Estructura:
@@ -74,13 +74,36 @@ def render_note_markdown(note: Note) -> str:
 
         <body>
 
+        ## Conexiones        (solo si hay wikilinks — T-206)
+
+        - [[link]]
+
         ## Origen
 
         Mencionado entre el segundo X.X y el Y.Y.
+
+    Args:
+        note: La nota a renderizar.
+        wikilinks: Lista opcional de wikilinks ya formateados (`[[x|y]]`).
+            Si se pasa y no está vacía, se inserta la sección `## Conexiones`
+            entre el cuerpo y `## Origen`.
     """
     yaml_block = render_frontmatter_yaml(note).rstrip()
     origin = (
         f"Mencionado entre el segundo {note.source.timestamp_start:.1f} "
         f"y el {note.source.timestamp_end:.1f}."
     )
-    return f"---\n{yaml_block}\n---\n\n# {note.title}\n\n{note.body}\n\n## Origen\n\n{origin}\n"
+
+    connections = ""
+    if wikilinks:
+        links_block = "\n".join(f"- {link}" for link in wikilinks)
+        connections = f"## Conexiones\n\n{links_block}\n\n"
+
+    return (
+        f"---\n{yaml_block}\n---\n\n"
+        f"# {note.title}\n\n"
+        f"{note.body}\n\n"
+        f"{connections}"
+        f"## Origen\n\n"
+        f"{origin}\n"
+    )
