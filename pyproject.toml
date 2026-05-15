@@ -110,6 +110,7 @@ module = [
     "ollama",
     "slugify",
     "frontmatter",
+    "qdrant_client.*",
 ]
 ignore_missing_imports = true
 
