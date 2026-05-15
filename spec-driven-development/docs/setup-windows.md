@@ -14,7 +14,7 @@
 | Docker Desktop | 4.25+ | https://www.docker.com/products/docker-desktop |
 | Ollama | 0.1.40+ | https://ollama.com/download/windows |
 | Obsidian | 1.5+ | https://obsidian.md/download |
-| ffmpeg | 6.0+ | https://www.gyan.dev/ffmpeg/builds/ (añadir a PATH) |
+| ffmpeg | 6.0+ **shared build** | `winget install Gyan.FFmpeg.Shared` — el *shared build* (con DLLs `avcodec`/`avformat`/...) es obligatorio: `pyannote.audio 4.x` carga audio vía `torchcodec`, que necesita esas DLLs en el PATH. El build estático (`Gyan.FFmpeg`) NO sirve para diarización. |
 | uv (recomendado) | latest | `winget install astral-sh.uv` |
 
 **Hardware recomendado:**

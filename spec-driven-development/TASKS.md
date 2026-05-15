@@ -52,8 +52,9 @@
   - *Aceptación:* copia el audio a `data/audio/{call_id}.{ext}` (extensión preservada) y crea registro en SQLite
 - [x] **T-102** Wrapper de `faster-whisper` en `enigma.ingest.transcriber` (RF-02)
   - *Aceptación:* transcribe un audio de prueba en español con WER ≤ 15%
-- [ ] **T-103** Integrar diarización con `pyannote.audio` (RF-03)
+- [x] **T-103** Integrar diarización con `pyannote.audio` (RF-03)
   - *Aceptación:* output incluye `speakers` distinguibles cuando el audio tiene 2+ voces
+  - **Nota:** pyannote.audio 4.x usa el modelo `pyannote/speaker-diarization-community-1` (no `3.1`) y carga audio vía `torchcodec`, que requiere FFmpeg *shared build* (`Gyan.FFmpeg.Shared`) en el PATH. `transcribe()` diariza si `settings.diarization_enabled`; un fallo de diarización es non-fatal (RF-03 es *Should*). Verificado con `test_diarize_real` (integration).
 - [x] **T-104** Persistir transcripción como JSON en `data/transcripts/{call_id}.json`
   - *Aceptación:* JSON validable con esquema Pydantic `Transcript`
 
@@ -187,7 +188,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 10 | 100% | — |
-| 1 | 15 | 14 | 93% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-108 cubre dedup con heurística textual; embeddings reales llegan en Fase 2. **Único pendiente: T-103** (diarización) — bloqueado por HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. NB: HuggingFace SÍ funciona (Whisper descarga modelos OK); el bloqueo TLS afecta solo al CDN de Ollama (R2). |
+| 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |

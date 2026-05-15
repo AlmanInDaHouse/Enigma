@@ -11,7 +11,7 @@
 |---|---|---|
 | Lenguaje principal | **Python 3.11+** | Ecosistema maduro para IA/NLP; mismo lenguaje en todo el pipeline |
 | Transcripción | **faster-whisper** (CTranslate2) | 4× más rápido que whisper original; CPU-friendly; soporta español |
-| Diarización | **pyannote.audio** | Estándar de facto; modelos pre-entrenados |
+| Diarización | **pyannote.audio 4.x** + `speaker-diarization-community-1` | Estándar de facto. Requiere token HuggingFace y FFmpeg *shared build* (torchcodec carga audio vía DLLs de FFmpeg) |
 | LLM local | **Ollama** + Qwen 2.5 7B (default) | API REST sencilla, gestión de modelos automática. Llama 3.1 8B sigue siendo compatible si su pull queda desbloqueado (ver TASKS T-006) |
 | Embeddings | **Ollama** con `nomic-embed-text` | Local, 768 dim, buen español |
 | Vector DB | **Qdrant** (Docker) | Robusto, filtrado por metadatos, REST + gRPC |
@@ -123,8 +123,9 @@ Enigma_V3/
 │       │   ├── transcript.py
 │       │   └── note.py
 │       ├── ingest/
-│       │   ├── audio.py
-│       │   └── transcriber.py      # faster-whisper wrapper
+│       │   ├── audio.py            # registro de Call + copia de audio
+│       │   ├── transcriber.py      # faster-whisper wrapper + assign_speakers
+│       │   └── diarizer.py         # pyannote.audio (quién habla cuándo)
 │       ├── extract/
 │       │   ├── prompts.py          # plantilla system+user para el LLM
 │       │   ├── chunker.py          # particionado del transcript con overlap

@@ -47,6 +47,7 @@ class Settings(BaseSettings):
 
     # ── Diarización (pyannote) ──────────────────────────────────────────
     diarization_enabled: bool = True
+    diarization_model: str = "pyannote/speaker-diarization-community-1"
     pyannote_auth_token: str | None = None
 
     # ── API REST interna ────────────────────────────────────────────────

@@ -5,9 +5,14 @@ combinación `(model_size, device, compute_type)`. Esto evita pagar el warmup
 (~1-3 s en CPU) y la carga de pesos (~75 MB para `tiny`, ~1.5 GB para
 `large-v3`) en cada llamada.
 
-T-103 reemplazará `speaker=None` en los segmentos con la salida de pyannote.
+`transcribe()` opcionalmente diariza (T-103): si `settings.diarization_enabled`
+es `True`, llama a pyannote y asigna el hablante a cada segmento por
+solapamiento temporal. Un fallo de diarización NO rompe la transcripción
+(RF-03 es *Should*, no *Must*) — se registra un warning y se devuelve el
+transcript con `speaker=None`.
 """
 
+import logging
 import math
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -16,11 +21,14 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from enigma.config import settings
+from enigma.ingest.diarizer import DiarizationTurn, diarize_audio
 from enigma.models.call import Call
 from enigma.models.transcript import Transcript, TranscriptSegment
 
 if TYPE_CHECKING:
     from faster_whisper import WhisperModel
+
+_log = logging.getLogger(__name__)
 
 
 def _resolve_device() -> str:
@@ -58,7 +66,47 @@ def _confidence_from_logprob(avg_logprob: float | None) -> float | None:
     return max(0.0, min(1.0, math.exp(avg_logprob)))
 
 
-def transcribe(call: Call, *, model_size: str | None = None) -> Transcript:
+def _dominant_speaker(
+    start: float,
+    end: float,
+    turns: list[DiarizationTurn],
+) -> str | None:
+    """Devuelve el `speaker` del turno con mayor solapamiento con `[start, end]`.
+
+    `None` si ningún turno solapa con el segmento.
+    """
+    best_speaker: str | None = None
+    best_overlap = 0.0
+    for turn in turns:
+        overlap = min(end, turn.end) - max(start, turn.start)
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_speaker = turn.speaker
+    return best_speaker
+
+
+def assign_speakers(transcript: Transcript, turns: list[DiarizationTurn]) -> Transcript:
+    """Asigna a cada segmento del `transcript` el hablante dominante.
+
+    Para cada `TranscriptSegment`, elige el `DiarizationTurn` que más solapa
+    temporalmente. Devuelve un `Transcript` nuevo (no muta el original). Si
+    `turns` está vacío, devuelve el transcript intacto.
+    """
+    if not turns:
+        return transcript
+    new_segments = [
+        seg.model_copy(update={"speaker": _dominant_speaker(seg.start, seg.end, turns)})
+        for seg in transcript.segments
+    ]
+    return transcript.model_copy(update={"segments": new_segments})
+
+
+def transcribe(
+    call: Call,
+    *,
+    model_size: str | None = None,
+    diarize: bool | None = None,
+) -> Transcript:
     """Transcribe el audio de `call` y devuelve un `Transcript`.
 
     El primer uso paga la carga del modelo (puede descargarlo de HuggingFace
@@ -69,10 +117,13 @@ def transcribe(call: Call, *, model_size: str | None = None) -> Transcript:
         call: La llamada cuyo audio se transcribe.
         model_size: Override del modelo Whisper (`tiny`, `base`, `small`,
             `medium`, `large-v1/2/3`). Por defecto, `settings.whisper_model`.
+        diarize: Si diarizar con pyannote. `None` (default) usa
+            `settings.diarization_enabled`. Un fallo de diarización se
+            registra como warning y NO rompe la transcripción.
 
     Returns:
-        Un `Transcript` con `segments` ordenados temporalmente. `speaker` queda
-        `None` (lo rellena T-103 con pyannote).
+        Un `Transcript` con `segments` ordenados temporalmente. `speaker` se
+        rellena si la diarización tuvo éxito; `None` en caso contrario.
     """
     size = model_size or settings.whisper_model
     device = _resolve_device()
@@ -96,7 +147,7 @@ def transcribe(call: Call, *, model_size: str | None = None) -> Transcript:
         for seg in raw_segments
     ]
 
-    return Transcript(
+    transcript = Transcript(
         call_id=call.id,
         model=f"faster-whisper:{size}",
         diarization_model=None,
@@ -104,6 +155,20 @@ def transcribe(call: Call, *, model_size: str | None = None) -> Transcript:
         segments=segments,
         created_at=datetime.now(tz=UTC),
     )
+
+    should_diarize = settings.diarization_enabled if diarize is None else diarize
+    if should_diarize:
+        try:
+            turns = diarize_audio(call.audio_path)
+        except Exception:
+            _log.warning("Diarización falló para call %s; sigo sin speakers", call.id)
+        else:
+            transcript = assign_speakers(transcript, turns)
+            transcript = transcript.model_copy(
+                update={"diarization_model": settings.diarization_model},
+            )
+
+    return transcript
 
 
 def _transcript_path(call_id: UUID) -> Path:
