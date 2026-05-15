@@ -74,6 +74,14 @@ class Settings(BaseSettings):
     contradiction_top_k: int = 5
     contradiction_similarity_threshold: float = 0.80
 
+    # ── Ideas recurrentes / clustering temático (T-405) ─────────────────
+    recurring_top_k: int = 5
+    # 0.68: `nomic-embed-text` tiene suelo ~0.60; notas del mismo tema caen en
+    # ~0.69-0.77 y el ruido en ~0.60-0.63 (medido en T-405).
+    recurring_similarity_threshold: float = 0.68
+    recurring_min_notes: int = 3
+    recurring_min_calls: int = 2
+
     # ── Deduplicación intra-llamada ─────────────────────────────────────
     dedup_similarity_threshold: float = 0.92
 

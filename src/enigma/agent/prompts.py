@@ -313,3 +313,49 @@ def build_contradiction_messages(
         {"role": "system", "content": CONTRADICTION_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
+
+
+# ── Nombrado de una idea recurrente (T-405) ─────────────────────────────────
+
+THEME_SYSTEM_PROMPT = """\
+Eres un asistente que nombra una IDEA RECURRENTE: un tema que reaparece en
+varias notas atómicas de un equipo a lo largo del tiempo.
+
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma exacta:
+{
+  "theme": "...",
+  "summary": "..."
+}
+
+REGLAS:
+1. `theme`: un nombre corto y descriptivo del hilo común (2-6 palabras).
+2. `summary`: 1-2 frases que expliquen de qué trata la idea recurrente y por
+   qué conecta a las notas.
+3. Céntrate en lo que las notas COMPARTEN, no en sus diferencias.
+4. Contenido factual, en español.
+"""
+
+
+THEME_USER_TEMPLATE = """\
+Estas notas forman un grupo temático. Nombra la idea recurrente que las une.
+
+NOTAS:
+{notes_block}
+"""
+
+
+def build_theme_messages(notes_block: str) -> list[dict[str, str]]:
+    """Construye los `messages` para nombrar una idea recurrente (Ollama, JSON).
+
+    Args:
+        notes_block: Bloque de texto con las notas del cluster (título +
+            cuerpo de cada una), ya formateado por el caller.
+
+    Returns:
+        Lista de dos dicts: `{"role": "system", ...}` y `{"role": "user", ...}`.
+    """
+    user_content = THEME_USER_TEMPLATE.format(notes_block=notes_block)
+    return [
+        {"role": "system", "content": THEME_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]

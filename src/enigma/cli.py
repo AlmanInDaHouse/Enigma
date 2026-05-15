@@ -13,6 +13,7 @@ Expone:
 - `enigma decisions` → regenera el índice de decisiones del corpus (T-402).
 - `enigma tasks` → regenera el índice de tareas pendientes del corpus (T-403).
 - `enigma contradictions` → regenera el índice de contradicciones (T-404).
+- `enigma themes` → regenera el índice de ideas recurrentes (T-405).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -388,6 +389,24 @@ def contradictions() -> None:
     console.print(f"  • Notas escaneadas:      {result.notes_scanned}")
     console.print(f"  • Pares evaluados:       {result.pairs_evaluated}")
     console.print(f"  • Contradicciones:       [bold]{len(result.contradictions)}[/bold]")
+    console.print(f"  • Índice: {result.index_path}")
+
+
+@app.command()
+def themes() -> None:
+    """Regenera `vault/recurring-themes.md`: ideas recurrentes del corpus (T-405)."""
+    from rich.console import Console
+
+    from enigma.agent.themes import build_recurring_themes_index
+
+    console = Console()
+    console.print("Detectando ideas recurrentes… (puede tardar según el Vault)")
+    result = build_recurring_themes_index()
+
+    console.print("[green]✓[/green] Índice de ideas recurrentes regenerado.")
+    console.print(f"  • Notas escaneadas:   {result.notes_scanned}")
+    console.print(f"  • Clusters hallados:  {result.clusters_found}")
+    console.print(f"  • Ideas recurrentes:  [bold]{len(result.themes)}[/bold]")
     console.print(f"  • Índice: {result.index_path}")
 
 

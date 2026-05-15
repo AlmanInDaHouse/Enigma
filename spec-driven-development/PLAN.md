@@ -145,6 +145,7 @@ Enigma_V3/
 │       │   ├── rag.py                # pipeline RAG (retrieve + LLM + citas)
 │       │   ├── prompts.py            # prompts del RAG / agente
 │       │   ├── decisions.py          # extracción de decisiones → decisions.md
+│       │   ├── themes.py             # ideas recurrentes → recurring-themes.md
 │       │   ├── summarizer.py
 │       │   ├── contradictions.py
 │       │   └── tasks_extractor.py
@@ -232,6 +233,14 @@ Una contradicción es un par de notas que afirman algo opuesto sobre la misma en
 - **Pares candidatos por proximidad semántica:** una contradicción solo puede darse entre notas del mismo tema. Para cada nota se buscan sus top-k vecinos en Qdrant (mismo patrón que la detección de wikilinks, §4.7) y solo esos pares — deduplicados (A-B = B-A) y por encima de `contradiction_similarity_threshold` (0.80) — pasan por el juicio del LLM. Coste: **O(N·k)** llamadas LLM en vez de O(N²).
 - **Juicio del LLM:** para cada par candidato, el LLM responde JSON `{"contradiction": bool, "explanation": str}`. Conservador: ante la duda, `false`.
 - Las contradicciones confirmadas se agregan en `vault/contradictions.md` (índice MOC en la raíz del Vault, regenerable con `enigma contradictions`). Implementación en `src/enigma/agent/contradictions.py`. Requiere el Vault indexado en Qdrant.
+
+### 4.10 Ideas recurrentes (T-405)
+Una idea recurrente es un tema que reaparece en varias notas a lo largo del tiempo.
+
+- **Clustering por componentes conexas:** se construye el grafo de similitud (aristas = vecinos Qdrant sobre `recurring_similarity_threshold`) y sus componentes conexas — vía union-find puro, sin dependencias — son los clusters temáticos (*single-linkage clustering*). Se descartan K-means (necesita k a priori) y HDBSCAN/sklearn (dependencia nueva).
+- **Criterio de recurrencia:** un cluster es idea recurrente solo si tiene ≥ `recurring_min_notes` (3) notas Y provienen de ≥ `recurring_min_calls` (2) llamadas distintas. Lo segundo es el componente temporal: varias notas de una sola llamada son una discusión puntual, no recurrencia.
+- **Umbral:** `recurring_similarity_threshold = 0.68`. `nomic-embed-text` tiene un suelo de similitud alto (~0.60); medido en T-405, las notas del mismo tema caen en ~0.69-0.77 y el ruido en ~0.60-0.63 — de ahí 0.68 (más bajo que el 0.80 de contradicciones, que comparan afirmaciones casi idénticas).
+- El LLM nombra cada cluster cualificado; el resultado se agrega en `vault/recurring-themes.md` (`enigma themes`). Implementación en `src/enigma/agent/themes.py`.
 
 ## 5. Modelo de despliegue
 
