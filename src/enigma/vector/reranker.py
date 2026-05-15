@@ -13,21 +13,21 @@ corre 100% local; el objeto se cachea por proceso.
 
 `sentence-transformers` se importa de forma perezosa dentro de `_encoder`:
 es una dependencia pesada (arrastra `transformers`) y así importar este
-módulo — p.ej. para mockearlo en tests — no la carga.
+módulo — p.ej. para mockearlo en tests — no la carga. El `CrossEncoder` se
+trata como `Any` a propósito: sus overloads de `predict` (audio/imagen/vídeo)
+hacen que mypy rechace un `list[tuple[str, str]]` legítimo, y el tipo solo
+estaría disponible en los entornos donde el paquete está instalado.
 """
 
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from enigma.config import settings
 from enigma.models.note import Note
 
-if TYPE_CHECKING:
-    from sentence_transformers import CrossEncoder
-
 
 @lru_cache(maxsize=2)
-def _encoder(model: str) -> "CrossEncoder":
+def _encoder(model: str) -> Any:
     """Carga (y cachea) el cross-encoder. Descarga el modelo en la 1ª llamada."""
     from sentence_transformers import CrossEncoder
 
