@@ -4,11 +4,15 @@ Expone:
 - `enigma --version` / `enigma -v` → imprime la versión y sale.
 - `enigma version` → mismo resultado, como subcomando.
 - `enigma ingest <audio> [--title T]` → pipeline end-to-end (T-113).
+- `enigma list calls` → tabla de llamadas registradas (T-114).
+- `enigma list notes [--last 7d]` → tabla de notas del Vault (T-114).
 
-Subcomandos adicionales (list, ask, etc.) se añaden en fases posteriores
-y se enganchan al `app` global definido aquí.
+Subcomandos adicionales (ask, etc.) se añaden en fases posteriores y se
+enganchan al `app` global definido aquí.
 """
 
+import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -103,6 +107,104 @@ def ingest(
     if result.note_paths:
         console.print(f"  • Notas: {result.note_paths[0].parent}")
     console.print(f"  • Índice de llamada: {result.call_index_path}")
+
+
+# ── enigma list ─────────────────────────────────────────────────────────────
+
+_LAST_WINDOW_RE = re.compile(r"^(\d+)\s*([dhwm])$")
+_UNIT_TO_KWARG = {"d": "days", "h": "hours", "w": "weeks", "m": "minutes"}
+
+list_app = typer.Typer(help="Listar llamadas y notas.", no_args_is_help=True)
+app.add_typer(list_app, name="list")
+
+
+def _parse_last_window(spec: str) -> timedelta:
+    """Parsea `'7d'`, `'24h'`, `'2w'`, `'30m'` a `timedelta`.
+
+    Raises:
+        typer.BadParameter: si el formato no casa con `N` + `d/h/w/m`.
+    """
+    match = _LAST_WINDOW_RE.match(spec.strip().lower())
+    if match is None:
+        raise typer.BadParameter(
+            f"Formato inválido: {spec!r}. Usa N seguido de d/h/w/m (p.ej. '7d').",
+        )
+    amount, unit = int(match.group(1)), match.group(2)
+    return timedelta(**{_UNIT_TO_KWARG[unit]: amount})
+
+
+@list_app.command("calls")
+def list_calls_command() -> None:
+    """Lista las llamadas registradas en SQLite."""
+    from rich.console import Console
+    from rich.table import Table
+
+    from enigma.db import calls as calls_db
+    from enigma.db.sqlite import get_connection
+
+    console = Console()
+    with get_connection() as conn:
+        calls = calls_db.list_calls(conn)
+
+    if not calls:
+        console.print("[yellow]No hay llamadas registradas.[/yellow]")
+        return
+
+    table = Table(title=f"Llamadas ({len(calls)})")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Título")
+    table.add_column("Grabada")
+    table.add_column("Duración")
+    table.add_column("Estado")
+    for call in calls:
+        table.add_row(
+            call.id.hex[:8],
+            call.title or "—",
+            call.recorded_at.strftime("%Y-%m-%d %H:%M"),
+            f"{call.duration_seconds / 60:.1f} min",
+            call.status,
+        )
+    console.print(table)
+
+
+@list_app.command("notes")
+def list_notes_command(
+    last: Annotated[
+        str | None,
+        typer.Option(
+            "--last",
+            help="Ventana temporal: N seguido de d/h/w/m (p.ej. '7d').",
+        ),
+    ] = None,
+) -> None:
+    """Lista las notas del Vault, opcionalmente filtradas por antigüedad."""
+    from rich.console import Console
+    from rich.table import Table
+
+    from enigma.vault.reader import list_vault_notes
+
+    console = Console()
+    since = datetime.now(tz=UTC) - _parse_last_window(last) if last is not None else None
+    notes = list_vault_notes(since=since)
+
+    if not notes:
+        suffix = f" en los últimos {last}." if last else " en el Vault."
+        console.print(f"[yellow]No hay notas{suffix}[/yellow]")
+        return
+
+    table = Table(title=f"Notas ({len(notes)})")
+    table.add_column("Creada", style="cyan", no_wrap=True)
+    table.add_column("Título")
+    table.add_column("Estado")
+    table.add_column("Tags")
+    for note in notes:
+        table.add_row(
+            note.created_at.strftime("%Y-%m-%d %H:%M"),
+            note.title,
+            note.status,
+            ", ".join(note.tags) or "—",
+        )
+    console.print(table)
 
 
 if __name__ == "__main__":

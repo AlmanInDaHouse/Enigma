@@ -111,9 +111,10 @@ Enigma_V3/
 ├── src/
 │   └── enigma/
 │       ├── __init__.py
-│       ├── cli.py                  # Typer entrypoint
+│       ├── cli.py                  # Typer entrypoint (version, ingest, list)
 │       ├── api.py                  # FastAPI app
 │       ├── config.py               # Pydantic Settings
+│       ├── pipeline.py             # orquestación end-to-end audio → Vault
 │       ├── db/                     # SQLite shared infra (calls, transcripts, jobs)
 │       │   ├── sqlite.py           # get_connection + init_schema
 │       │   └── calls.py            # CRUD para la tabla `calls`
@@ -129,8 +130,9 @@ Enigma_V3/
 │       │   ├── chunker.py          # particionado del transcript con overlap
 │       │   └── extractor.py        # LLM → notas atómicas
 │       ├── vault/
-│       │   ├── writer.py           # escribe .md
-│       │   ├── frontmatter.py
+│       │   ├── writer.py           # escribe .md (notas + índice de llamada)
+│       │   ├── frontmatter.py      # genera YAML + renderiza Markdown
+│       │   ├── reader.py           # lee notas del Vault para listados
 │       │   └── linker.py           # propone wikilinks
 │       ├── vector/
 │       │   ├── qdrant_client.py

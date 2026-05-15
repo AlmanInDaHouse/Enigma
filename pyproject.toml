@@ -101,7 +101,16 @@ warn_return_any = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["pyannote.*", "faster_whisper.*", "soundfile", "torch", "tiktoken", "ollama", "slugify"]
+module = [
+    "pyannote.*",
+    "faster_whisper.*",
+    "soundfile",
+    "torch",
+    "tiktoken",
+    "ollama",
+    "slugify",
+    "frontmatter",
+]
 ignore_missing_imports = true
 
 # ─── Pytest ────────────────────────────────────────────────────
