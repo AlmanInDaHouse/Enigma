@@ -61,6 +61,7 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
     "ipython>=8.25",
+    "types-PyYAML>=6.0",  # type stubs for PyYAML; consumed by mypy in src/enigma/vault/frontmatter.py
 ]
 
 [project.scripts]
