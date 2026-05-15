@@ -15,6 +15,7 @@ Expone:
 - `enigma contradictions` → regenera el índice de contradicciones (T-404).
 - `enigma themes` → regenera el índice de ideas recurrentes (T-405).
 - `enigma serendipity` → regenera el índice de conexiones no obvias (T-406).
+- `enigma stats` → dashboard ASCII con métricas del sistema (T-504).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -427,6 +428,67 @@ def serendipity() -> None:
     console.print(f"  • Pares evaluados:   {result.pairs_evaluated}")
     console.print(f"  • Conexiones:        [bold]{len(result.suggestions)}[/bold]")
     console.print(f"  • Índice: {result.index_path}")
+
+
+@app.command()
+def stats() -> None:
+    """Muestra un dashboard ASCII con métricas del sistema (T-504, RNF-08)."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    from enigma.stats import gather_stats
+
+    console = Console()
+    data = gather_stats()
+    corpus, activity, health = data.corpus, data.activity, data.health
+
+    def fmt_breakdown(breakdown: dict[str, int]) -> str:
+        if not breakdown:
+            return "—"
+        return ", ".join(f"{key} {value}" for key, value in sorted(breakdown.items()))
+
+    # ── Corpus ───────────────────────────────────────────────────────────
+    corpus_table = Table.grid(padding=(0, 2))
+    corpus_table.add_column(style="bold")
+    corpus_table.add_column()
+    corpus_table.add_row(
+        "Llamadas", f"{corpus.total_calls}  ({fmt_breakdown(corpus.calls_by_status)})"
+    )
+    corpus_table.add_row(
+        "Notas", f"{corpus.total_notes}  ({fmt_breakdown(corpus.notes_by_status)})"
+    )
+    corpus_table.add_row("Huérfanas", str(corpus.orphan_notes))
+    vectors = "—" if corpus.qdrant_vectors is None else str(corpus.qdrant_vectors)
+    corpus_table.add_row("Vectores Qdrant", vectors)
+    corpus_table.add_row("Audio procesado", f"{corpus.total_audio_hours:.2f} h")
+    corpus_table.add_row("Notas por llamada", f"{corpus.avg_notes_per_call:.1f}")
+    console.print(Panel(corpus_table, title="Corpus", border_style="cyan"))
+
+    # ── Actividad ────────────────────────────────────────────────────────
+    activity_table = Table.grid(padding=(0, 2))
+    activity_table.add_column(style="bold")
+    activity_table.add_column()
+    activity_table.add_row("Llamadas (7 días)", str(activity.calls_last_7d))
+    activity_table.add_row("Llamadas (30 días)", str(activity.calls_last_30d))
+    max_notes = max(activity.notes_per_day.values(), default=0)
+    for day, n in activity.notes_per_day.items():
+        bar = "█" * round(24 * n / max_notes) if max_notes > 0 else ""
+        activity_table.add_row(day, f"{bar} {n}")
+    console.print(Panel(activity_table, title="Actividad — notas/día", border_style="cyan"))
+
+    # ── Salud ────────────────────────────────────────────────────────────
+    def mark(ok: bool) -> str:
+        return "[green]OK[/green]" if ok else "[red]no disponible[/red]"
+
+    latency = f"{health.embed_latency_ms:.0f} ms" if health.embed_latency_ms is not None else "—"
+    health_table = Table.grid(padding=(0, 2))
+    health_table.add_column(style="bold")
+    health_table.add_column()
+    health_table.add_row("Qdrant", mark(health.qdrant_ok))
+    health_table.add_row("Ollama", mark(health.ollama_ok))
+    health_table.add_row("Latencia de embedding", latency)
+    console.print(Panel(health_table, title="Salud (sondeo en vivo)", border_style="cyan"))
 
 
 # ── enigma list ─────────────────────────────────────────────────────────────

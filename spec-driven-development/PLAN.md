@@ -116,6 +116,7 @@ Enigma_V3/
 │       ├── config.py               # Pydantic Settings
 │       ├── pipeline.py             # orquestación end-to-end audio → Vault
 │       ├── search.py               # búsqueda semántica top-k (enigma search)
+│       ├── stats.py                # métricas del sistema (enigma stats)
 │       ├── db/                     # SQLite shared infra (calls, transcripts, jobs)
 │       │   ├── sqlite.py           # get_connection + init_schema
 │       │   └── calls.py            # CRUD para la tabla `calls`
