@@ -37,6 +37,7 @@ repos:
           - pydantic>=2.7
           - pydantic-settings>=2.3
           - typer>=0.12
+          - types-PyYAML>=6.0
         args: ["--config-file", "pyproject.toml"]
         # pasa sólo el código de producción al type-checker
         files: ^src/
