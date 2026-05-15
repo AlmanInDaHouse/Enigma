@@ -15,6 +15,9 @@
 # (el paquete Python con el writer + frontmatter).
 /vault/
 
+# Snapshots de backup (enigma backup) — locales, no se versionan.
+/backups/
+
 # ─── Python ───────────────────────────────────────────────────
 __pycache__/
 *.py[cod]

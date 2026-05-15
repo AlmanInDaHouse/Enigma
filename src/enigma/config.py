@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # ── Paths ───────────────────────────────────────────────────────────
     enigma_vault_path: Path = PROJECT_ROOT / "vault"
     enigma_data_path: Path = PROJECT_ROOT / "data"
+    backup_dir: Path = PROJECT_ROOT / "backups"
 
     # ── Ollama (LLM + embeddings) ───────────────────────────────────────
     ollama_host: str = "http://localhost:11434"

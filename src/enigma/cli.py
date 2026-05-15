@@ -16,12 +16,14 @@ Expone:
 - `enigma themes` → regenera el índice de ideas recurrentes (T-405).
 - `enigma serendipity` → regenera el índice de conexiones no obvias (T-406).
 - `enigma stats` → dashboard ASCII con métricas del sistema (T-504).
+- `enigma backup` / `enigma restore` → snapshot y restauración (T-505).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
 """
 
 import re
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -30,6 +32,18 @@ from uuid import UUID
 import typer
 
 from enigma import __version__
+
+# En Windows, si la salida de `enigma` se redirige a un fichero o pipe (p.ej.
+# un `enigma backup` programado con log), stdout no es una consola y su
+# codificación puede ser cp1252, que no admite caracteres como ✓/█/—. Forzar
+# UTF-8 evita el `UnicodeEncodeError`. El guard cubre streams sin
+# `reconfigure` (p.ej. la captura de pytest).
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (ValueError, OSError):
+            pass
 
 app = typer.Typer(
     name="enigma",
@@ -489,6 +503,71 @@ def stats() -> None:
     health_table.add_row("Ollama", mark(health.ollama_ok))
     health_table.add_row("Latencia de embedding", latency)
     console.print(Panel(health_table, title="Salud (sondeo en vivo)", border_style="cyan"))
+
+
+@app.command()
+def backup(
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Carpeta destino. Default `settings.backup_dir`."),
+    ] = None,
+) -> None:
+    """Crea un snapshot del Vault y los datos en un `.zip` (T-505)."""
+    from rich.console import Console
+
+    from enigma.backup import create_backup
+
+    console = Console()
+    manifest = create_backup(output_dir=output)
+    console.print("[green]✓[/green] Backup creado.")
+    console.print(f"  • Archivo: {manifest.archive_path}")
+    console.print(f"  • Notas del Vault:    {manifest.vault_files}")
+    console.print(f"  • Ficheros de data/:  {manifest.data_files}")
+    console.print(f"  • Tamaño: {manifest.size_bytes / 1024 / 1024:.1f} MB")
+
+
+@app.command()
+def restore(
+    archive: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            help="Archivo .zip de backup a restaurar.",
+        ),
+    ],
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Sobrescribe el destino aunque ya tenga datos."),
+    ] = False,
+    reindex: Annotated[
+        bool,
+        typer.Option("--reindex/--no-reindex", help="Reconstruye Qdrant tras restaurar."),
+    ] = True,
+) -> None:
+    """Restaura un snapshot creado por `enigma backup` (T-505).
+
+    Es destructivo: sin `--force` se aborta si el Vault o `data/` ya tienen
+    contenido.
+    """
+    from rich.console import Console
+
+    from enigma.backup import BackupError, restore_backup
+
+    console = Console()
+    try:
+        report = restore_backup(archive, reindex=reindex, force=force)
+    except BackupError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print("[green]✓[/green] Backup restaurado.")
+    console.print(f"  • Notas del Vault:    {report.vault_files}")
+    console.print(f"  • Ficheros de data/:  {report.data_files}")
+    if report.reindexed_notes is not None:
+        console.print(f"  • Notas reindexadas en Qdrant: {report.reindexed_notes}")
 
 
 # ── enigma list ─────────────────────────────────────────────────────────────
