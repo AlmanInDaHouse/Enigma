@@ -108,8 +108,9 @@
 - [x] **T-204** File watcher en `workers/watcher.py` que vectoriza al detectar cambios en `vault/`
   - *Aceptación:* editar una nota en Obsidian re-vectoriza en < 5s *(verificado: `test_watcher_vectorizes_new_note_within_5s`)*
   - **Nota:** comando `enigma watch` arranca el watcher. Borrar una nota elimina su vector si el watcher la había visto (cache `path → note_id`); huérfanas de antes del arranque se limpian en T-207 / reindex.
-- [ ] **T-205** Detección de wikilinks: top-5 vecinos + validación con LLM (RF-06)
+- [x] **T-205** Detección de wikilinks: top-5 vecinos + validación con LLM (RF-06)
   - *Aceptación:* > 70% de los links propuestos se mantienen tras revisión humana
+  - **Nota:** `suggest_wikilinks()` en `vault/linker.py`: embebe → busca top-k en Qdrant → filtra por `link_similarity_threshold` (0.78) → valida cada candidato con LLM (descarta cercanías superficiales). La métrica "> 70%" requiere revisión humana — verificable cuando el equipo use el Vault. La validación LLM es conservadora: un fallo descarta el candidato.
 - [ ] **T-206** Inyectar wikilinks en sección dedicada de la nota
   - *Aceptación:* nota generada tiene `## Conexiones` con `[[links]]`
 - [ ] **T-207** Marcar notas huérfanas (sin links) con tag `#orphan` para revisión
@@ -191,7 +192,7 @@ Actualizar manualmente al cierre de cada fase:
 |---|---|---|---|---|
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
-| 2 | 7 | 4 | 57% | — |
+| 2 | 7 | 5 | 71% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |
