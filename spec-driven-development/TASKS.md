@@ -155,8 +155,9 @@
 - [x] **T-403** Extracción de tareas pendientes
   - *Aceptación:* nota `tasks.md` con responsables (cuando identificables) y fecha de mención
   - **Nota:** `build_task_index()` en `agent/tasks_extractor.py`, gemelo estructural de T-402: recorre `list_calls` → `extract_tasks_from_call` (LLM `format="json"`) → reescribe `vault/tasks.md`. Cada tarea lleva `assignee` opcional (responsable, `null` si no se identifica); la fecha de mención es la `recorded_at` de la llamada, visible en la cabecera del grupo. Tareas renderizadas como checklist Markdown (`- [ ] enunciado — _responsable_`), agrupadas por llamada, orden cronológico inverso, con `[[wikilink]]` al índice de llamada. Comando `enigma tasks`. Idempotente; fallo de extracción por llamada se omite con warning. Verificado con `test_tasks_real.py` (integration, Ollama real).
-- [ ] **T-404** Detección de contradicciones (RF-09)
+- [x] **T-404** Detección de contradicciones (RF-09)
   - *Aceptación:* sobre un test set con contradicciones inyectadas, ≥ 60% detectadas
+  - **Nota:** `build_contradiction_index()` en `agent/contradictions.py`. Para evitar el O(N²), los pares candidatos se generan por **proximidad semántica**: por cada nota, sus top-k vecinos en Qdrant sobre `contradiction_similarity_threshold` (0.80), deduplicados (A-B = B-A) → O(N·k) llamadas LLM. Cada par candidato lo juzga el LLM (`format="json"`, conservador). Las confirmadas → `vault/contradictions.md` (índice MOC, comando `enigma contradictions`). Reusa la infra de embeddings/Qdrant (patrón de wikilinks T-205) y `load_all_notes` (nuevo en `vault/reader.py`). Requiere el Vault indexado en Qdrant; sin colección → 0 candidatos, índice vacío (hardening T-305). Estrategia documentada en `PLAN.md §4.9`. **Aceptación verificada empíricamente:** `test_contradictions_real.py` (integration) inyecta 3 pares contradictorios + notas neutras, indexa y aserta recall ≥ 60%.
 - [ ] **T-405** Detección de ideas recurrentes (clustering temporal)
   - *Aceptación:* nota `recurring-themes.md` se regenera semanalmente
 - [ ] **T-406** Sugerencias de conexiones no obvias entre notas distantes
@@ -204,5 +205,5 @@ Actualizar manualmente al cierre de cada fase:
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
 | 2 | 7 | 7 | 100% | — |
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
-| 4 | 6 | 3 | 50% | T-401: resumen single-shot (no map-reduce); nota-resumen separada del índice de llamada. T-402: `decisions.md` desde transcripts (N llamadas LLM, sin caché). T-403: `tasks.md` análogo, con `assignee` opcional. |
+| 4 | 6 | 4 | 67% | T-401: resumen single-shot (no map-reduce); nota-resumen separada del índice de llamada. T-402: `decisions.md` desde transcripts (N llamadas LLM, sin caché). T-403: `tasks.md` análogo, con `assignee` opcional. T-404: contradicciones con pares candidatos por vecindad Qdrant (O(N·k)); ver `PLAN.md §4.9`. |
 | 5 | 6 | 0 | 0% | — |

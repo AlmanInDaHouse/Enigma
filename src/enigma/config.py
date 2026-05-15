@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     rerank_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     rerank_candidate_pool: int = 20
 
+    # ── Detección de contradicciones (T-404) ────────────────────────────
+    contradiction_top_k: int = 5
+    contradiction_similarity_threshold: float = 0.80
+
     # ── Deduplicación intra-llamada ─────────────────────────────────────
     dedup_similarity_threshold: float = 0.92
 

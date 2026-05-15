@@ -226,6 +226,13 @@ La búsqueda vectorial usa embeddings *bi-encoder* (`nomic-embed-text`): rápida
 - **Opcional:** `rerank_enabled = False` por defecto. El RAG funciona sin reranking; se activa vía `.env` cuando el corpus crece y la calidad del top-k lo justifica.
 - Implementación en `src/enigma/vector/reranker.py`; cableado en `agent/rag.py::answer_question`.
 
+### 4.9 Detección de contradicciones (T-404)
+Una contradicción es un par de notas que afirman algo opuesto sobre la misma entidad. Comparar las N²/2 parejas con el LLM es inviable.
+
+- **Pares candidatos por proximidad semántica:** una contradicción solo puede darse entre notas del mismo tema. Para cada nota se buscan sus top-k vecinos en Qdrant (mismo patrón que la detección de wikilinks, §4.7) y solo esos pares — deduplicados (A-B = B-A) y por encima de `contradiction_similarity_threshold` (0.80) — pasan por el juicio del LLM. Coste: **O(N·k)** llamadas LLM en vez de O(N²).
+- **Juicio del LLM:** para cada par candidato, el LLM responde JSON `{"contradiction": bool, "explanation": str}`. Conservador: ante la duda, `false`.
+- Las contradicciones confirmadas se agregan en `vault/contradictions.md` (índice MOC en la raíz del Vault, regenerable con `enigma contradictions`). Implementación en `src/enigma/agent/contradictions.py`. Requiere el Vault indexado en Qdrant.
+
 ## 5. Modelo de despliegue
 
 Una sola máquina principal (la del admin) corre:

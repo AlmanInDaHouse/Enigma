@@ -12,6 +12,7 @@ Expone:
 - `enigma summarize call <id>` → resumen ejecutivo de una llamada (T-401).
 - `enigma decisions` → regenera el índice de decisiones del corpus (T-402).
 - `enigma tasks` → regenera el índice de tareas pendientes del corpus (T-403).
+- `enigma contradictions` → regenera el índice de contradicciones (T-404).
 
 Subcomandos adicionales se añaden en fases posteriores y se enganchan al
 `app` global definido aquí.
@@ -369,6 +370,24 @@ def tasks() -> None:
     console.print(f"  • Llamadas escaneadas:  {result.calls_scanned}")
     console.print(f"  • Llamadas con tareas:  {result.calls_with_tasks}")
     console.print(f"  • Tareas totales:       [bold]{len(result.tasks)}[/bold]")
+    console.print(f"  • Índice: {result.index_path}")
+
+
+@app.command()
+def contradictions() -> None:
+    """Regenera `vault/contradictions.md`: contradicciones entre notas (T-404)."""
+    from rich.console import Console
+
+    from enigma.agent.contradictions import build_contradiction_index
+
+    console = Console()
+    console.print("Buscando contradicciones… (puede tardar según el tamaño del Vault)")
+    result = build_contradiction_index()
+
+    console.print("[green]✓[/green] Índice de contradicciones regenerado.")
+    console.print(f"  • Notas escaneadas:      {result.notes_scanned}")
+    console.print(f"  • Pares evaluados:       {result.pairs_evaluated}")
+    console.print(f"  • Contradicciones:       [bold]{len(result.contradictions)}[/bold]")
     console.print(f"  • Índice: {result.index_path}")
 
 

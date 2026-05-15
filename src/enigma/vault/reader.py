@@ -193,3 +193,38 @@ def load_notes_by_ids(
             if len(found) == len(note_ids):
                 return found
     return found
+
+
+def load_all_notes(
+    vault_path: Path | None = None,
+    *,
+    subdirs: tuple[str, ...] = _DEFAULT_SUBDIRS,
+) -> list[Note]:
+    """Carga todas las notas del Vault con su cuerpo completo.
+
+    Una sola pasada por `inbox/` + `notes/`. Ficheros que no parsean como
+    nota Enigma válida se ignoran. Necesaria para los análisis transversales
+    del agente (contradicciones T-404, ideas recurrentes T-405) que precisan
+    el cuerpo de todas las notas, no solo su resumen.
+
+    Args:
+        vault_path: Raíz del Vault. Default `settings.enigma_vault_path`.
+        subdirs: Subcarpetas a recorrer. Default `("inbox", "notes")`.
+
+    Returns:
+        Lista de `Note` ordenada por `created_at` descendente.
+    """
+    root = vault_path if vault_path is not None else settings.enigma_vault_path
+
+    notes: list[Note] = []
+    for subdir in subdirs:
+        directory = root / subdir
+        if not directory.is_dir():
+            continue
+        for md_file in directory.glob("*.md"):
+            note = read_note(md_file)
+            if note is not None:
+                notes.append(note)
+
+    notes.sort(key=lambda note: note.created_at, reverse=True)
+    return notes

@@ -247,3 +247,69 @@ def build_tasks_messages(
         {"role": "system", "content": TASKS_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
+
+
+# ── Detección de contradicciones entre dos notas (T-404) ────────────────────
+
+CONTRADICTION_SYSTEM_PROMPT = """\
+Eres un asistente que decide si dos notas atómicas se CONTRADICEN.
+
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma exacta:
+{
+  "contradiction": true,
+  "explanation": "..."
+}
+
+REGLAS:
+1. Hay contradicción solo si las dos notas hacen afirmaciones OPUESTAS o
+   incompatibles sobre la MISMA entidad, dato o hecho (p.ej. precios
+   distintos para lo mismo, una afirma X y la otra niega X).
+2. NO es contradicción: que traten temas distintos, que se complementen, que
+   una sea más general que la otra, o que simplemente sean diferentes.
+3. `explanation`: si hay contradicción, una frase que explique en qué se
+   contradicen; si no la hay, una frase breve indicándolo.
+4. Ante la duda, responde `false`: es preferible perder una contradicción
+   sutil que reportar una falsa.
+"""
+
+
+CONTRADICTION_USER_TEMPLATE = """\
+NOTA A
+Título: {title_a}
+Cuerpo: {body_a}
+
+NOTA B
+Título: {title_b}
+Cuerpo: {body_b}
+
+¿Se contradicen la nota A y la nota B?
+"""
+
+
+def build_contradiction_messages(
+    title_a: str,
+    body_a: str,
+    title_b: str,
+    body_b: str,
+) -> list[dict[str, str]]:
+    """Construye los `messages` para juzgar si dos notas se contradicen.
+
+    Args:
+        title_a: Título de la nota A.
+        body_a: Cuerpo de la nota A.
+        title_b: Título de la nota B.
+        body_b: Cuerpo de la nota B.
+
+    Returns:
+        Lista de dos dicts: `{"role": "system", ...}` y `{"role": "user", ...}`.
+    """
+    user_content = CONTRADICTION_USER_TEMPLATE.format(
+        title_a=title_a,
+        body_a=body_a,
+        title_b=title_b,
+        body_b=body_b,
+    )
+    return [
+        {"role": "system", "content": CONTRADICTION_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
