@@ -77,8 +77,9 @@
   - *Aceptación:* reingestar la misma llamada NO crea ficheros duplicados (RF-10)
 - [x] **T-111** Escribir notas en `vault/inbox/` (revisión humana antes de promoción)
   - *Aceptación:* tras procesar un audio, las notas aparecen en `vault/inbox/`
-- [ ] **T-112** Crear nota índice por llamada en `vault/calls/{date}-{title}.md` con enlaces a las notas extraídas
+- [x] **T-112** Crear nota índice por llamada en `vault/calls/{date}-{title}-{short_id}.md` con enlaces a las notas extraídas
   - *Aceptación:* abrir la nota de la llamada en Obsidian muestra el grafo local
+  - **Nota:** se añadió `{short_id}` (8 hex del `call_id`) al filename respecto al ejemplo en `docs/architecture.md §5` para garantizar idempotencia 1↔1 con `Call.id` y evitar colisiones cuando coinciden fecha + título.
 
 ### CLI mínima
 
@@ -185,7 +186,7 @@ Actualizar manualmente al cierre de cada fase:
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
 | 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
-| 1 | 15 | 10 | 67% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-108 cubre dedup con heurística textual; embeddings reales llegan en Fase 2. T-103 (diarización) diferido pendiente de HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. |
+| 1 | 15 | 11 | 73% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-108 cubre dedup con heurística textual; embeddings reales llegan en Fase 2. T-103 (diarización) diferido pendiente de HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
