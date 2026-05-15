@@ -1,192 +1,238 @@
 # Enigma — Setup en Windows
 
-> Guía paso a paso para levantar Enigma desde cero en `C:\Users\manul\Enigma_V3`.
+> Guía para levantar Enigma desde cero en una máquina Windows 10/11.
+> Hay dos caminos: el **script `bootstrap.ps1`** (recomendado) o la
+> **instalación manual** paso a paso.
 
 ---
 
-## Requisitos previos
-
-| Software | Versión mínima | Cómo obtener |
-|---|---|---|
-| Windows | 10 / 11 | — |
-| Python | 3.11+ | https://www.python.org/downloads/ (marcar "Add to PATH") |
-| Git | 2.40+ | https://git-scm.com/download/win |
-| Docker Desktop | 4.25+ | https://www.docker.com/products/docker-desktop |
-| Ollama | 0.1.40+ | https://ollama.com/download/windows |
-| Obsidian | 1.5+ | https://obsidian.md/download |
-| ffmpeg | 6.0+ **shared build** | `winget install Gyan.FFmpeg.Shared` — el *shared build* (con DLLs `avcodec`/`avformat`/...) es obligatorio: `pyannote.audio 4.x` carga audio vía `torchcodec`, que necesita esas DLLs en el PATH. El build estático (`Gyan.FFmpeg`) NO sirve para diarización. |
-| uv (recomendado) | latest | `winget install astral-sh.uv` |
+## Requisitos
 
 **Hardware recomendado:**
-- CPU: 8 cores
-- RAM: 16 GB mínimo (32 GB cómodo)
-- GPU: NVIDIA con ≥ 6 GB VRAM (opcional pero acelera Whisper y Llama)
-- Disco: ≥ 50 GB libres (modelos + audios + Qdrant)
+
+- CPU: 8 cores.
+- RAM: 16 GB mínimo (32 GB cómodo — Whisper + LLM local).
+- GPU: NVIDIA con ≥ 6 GB VRAM (opcional; acelera Whisper).
+- Disco: ≥ 50 GB libres (modelos de Ollama ~5 GB, audios, Qdrant).
+
+**Software** (lo instala `bootstrap.ps1`, salvo Git):
+
+| Software | Para qué |
+|---|---|
+| Git | clonar el repo y sincronizar el Vault |
+| winget | gestor de paquetes de Windows (viene con Windows 11) |
+| uv | gestor de paquetes Python + entorno virtual |
+| Python 3.12 | runtime (gestionado por uv) |
+| FFmpeg **shared build** | `Gyan.FFmpeg.Shared` — obligatorio para diarización (`pyannote` carga audio vía `torchcodec`, que necesita las DLLs; el build *estático* NO sirve) y para `sentence-transformers` |
+| Ollama | LLM (`qwen2.5:7b`) y embeddings (`nomic-embed-text`) locales |
+| Docker Desktop | contenedor de Qdrant (base vectorial) |
+| Obsidian | interfaz del Vault de notas |
 
 ---
 
-## Paso 1 — Clonar repos
+## Vía rápida — `bootstrap.ps1`
+
+**1. Instala Git** (si no lo tienes): https://git-scm.com/download/win
+
+**2. Clona el repositorio:**
 
 ```powershell
-cd C:\Users\manul
+cd C:\Users\<tu-usuario>
 git clone https://github.com/AlmanInDaHouse/Enigma.git Enigma_V3
 cd Enigma_V3
 ```
 
-Para el Vault (repo separado):
+**3. Ejecuta el bootstrap:**
+
 ```powershell
-# crear un nuevo repo privado en GitHub: Enigma-Vault
-git clone git@github.com:AlmanInDaHouse/Enigma-Vault.git vault
+# Verifica primero qué falta, sin instalar nada:
+.\scripts\bootstrap.ps1 -Check
+
+# Instalación completa:
+.\scripts\bootstrap.ps1
 ```
+
+El script instala uv, Python 3.12, las dependencias, FFmpeg, Ollama y sus
+modelos (~5 GB), Docker Desktop, crea el `.env` y arranca Qdrant. Es
+**idempotente**: si algo falla puedes reejecutarlo sin miedo.
+
+> **Docker Desktop** puede pedir **reiniciar Windows** y activar WSL2. Tras
+> reiniciar y arrancar Docker, **reejecuta `.\scripts\bootstrap.ps1`** para
+> que levante Qdrant.
+>
+> Si gestionas Docker aparte: `.\scripts\bootstrap.ps1 -SkipDocker`.
+
+**4. Reabre la terminal** para que el PATH recoja lo recién instalado.
+
+**5. Rellena el token de HuggingFace** (solo si quieres diarización de
+hablantes). Edita `.env` y pon tu token en `PYANNOTE_AUTH_TOKEN`; además
+acepta las condiciones del modelo `pyannote/speaker-diarization-community-1`
+en huggingface.co. Sin token, la transcripción funciona igual pero sin
+distinguir hablantes (RF-03 es *best-effort*).
+
+Salta al **Vault de Obsidian** más abajo.
 
 ---
 
-## Paso 2 — Instalar Ollama y descargar modelos
+## Vía manual
+
+Por si prefieres control paso a paso o `bootstrap.ps1` falla en algún punto.
+
+**1. Clona el repo** (igual que arriba).
+
+**2. Instala las herramientas con winget:**
 
 ```powershell
-# Tras instalar Ollama desde el .exe oficial:
-ollama pull qwen2.5:7b          # LLM por defecto (ver PLAN.md §1)
-ollama pull nomic-embed-text    # bloqueante T-006; embedder para Fase 2
-
-# Verificar
-ollama run qwen2.5:7b "Hola, ¿estás listo?"
+winget install --exact --id astral-sh.uv
+winget install --exact --id Gyan.FFmpeg.Shared
+winget install --exact --id Ollama.Ollama
+winget install --exact --id Docker.DockerDesktop
 ```
 
-Ollama queda corriendo como servicio Windows en `http://localhost:11434`.
+Reabre la terminal después (para refrescar el PATH).
 
----
+**3. Python y dependencias** (desde la raíz del repo):
 
-## Paso 3 — Levantar Qdrant
+```powershell
+uv python install 3.12
+uv sync
+```
 
-Desde la raíz del repo:
+`uv sync` crea `.venv` con Python 3.12 e instala todo desde `uv.lock`.
+
+**4. Modelos de Ollama:**
+
+```powershell
+ollama pull qwen2.5:7b
+ollama pull nomic-embed-text
+```
+
+Ollama corre como servicio en `http://localhost:11434`.
+
+**5. Variables de entorno:**
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+Usa **forward slashes** en las rutas. Ajusta `ENIGMA_VAULT_PATH` y
+`ENIGMA_DATA_PATH` a tu ruta del repo, y rellena `PYANNOTE_AUTH_TOKEN` si
+quieres diarización.
+
+**6. Arranca Qdrant** (con Docker Desktop en marcha):
 
 ```powershell
 docker compose up -d qdrant
 ```
 
-Verificar: abrir `http://localhost:6333/dashboard` en navegador.
+Verifica: `http://localhost:6333/dashboard` en el navegador.
+
+> No hace falta inicializar la base SQLite ni la colección de Qdrant a mano:
+> el primer `enigma ingest` crea las carpetas y la base de datos, y la
+> colección `enigma_notes` se crea al vectorizar.
 
 ---
 
-## Paso 4 — Crear entorno Python e instalar dependencias
+## Vault de Obsidian
 
-Con **uv** (recomendado, rapidísimo):
-
-```powershell
-uv venv
-.venv\Scripts\Activate.ps1
-uv pip install -e ".[dev]"
-```
-
-O con pip clásico:
+El Vault es un **repositorio Git separado** del código, clonado dentro de
+`vault/` (está en `.gitignore` del repo de código).
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
+# Repo dedicado para el Vault (créalo en GitHub si no existe):
+git clone https://github.com/AlmanInDaHouse/Enigma-Vault.git vault
 ```
+
+En Obsidian:
+
+1. `Open folder as vault` → selecciona la carpeta `vault/` del repo.
+2. `Settings → Community plugins → Browse` e instala **Obsidian Git**
+   (y opcionalmente **Dataview** y **Templater**).
+3. En Obsidian Git: *Auto pull on startup* ON, *Auto commit-and-push
+   interval* 10 min.
+
+Así el Vault se sincroniza solo entre los miembros del equipo.
 
 ---
 
-## Paso 5 — Configurar variables de entorno
-
-Copiar plantilla:
+## Smoke test
 
 ```powershell
-copy .env.example .env
-notepad .env
+# Procesa un audio en español de ≥ 30s:
+uv run enigma ingest "C:\ruta\a\tu\audio.m4a"
 ```
 
-Editar las rutas (importante en Windows usar **forward slashes** o doble backslash):
-
-```env
-ENIGMA_VAULT_PATH=C:/Users/manul/Enigma_V3/vault
-ENIGMA_DATA_PATH=C:/Users/manul/Enigma_V3/data
-```
-
----
-
-## Paso 6 — Inicializar la base SQLite y carpetas
+Esperado: una nota índice en `vault/calls/`, varias notas atómicas en
+`vault/inbox/`, y puntos nuevos en Qdrant (visibles en el dashboard).
 
 ```powershell
-enigma init
-```
-
-Crea:
-- `data/audio/`
-- `data/transcripts/`
-- `data/enigma.db` (SQLite)
-- Colección `enigma_notes` en Qdrant
-
----
-
-## Paso 7 — Configurar Obsidian
-
-1. Abrir Obsidian
-2. `Open folder as vault` → seleccionar `C:\Users\manul\Enigma_V3\vault`
-3. `Settings → Community plugins → Browse`
-4. Instalar y activar:
-   - **Obsidian Git**
-   - **Dataview**
-   - **Templater**
-5. En Obsidian Git, configurar:
-   - Auto pull on startup: ON
-   - Auto commit and push interval: 10 min
-
----
-
-## Paso 8 — Smoke test
-
-```powershell
-# audio de prueba (puede ser una nota de voz tuya de ≥ 30s en español)
-enigma ingest "C:\Users\manul\Music\test.m4a"
-```
-
-Esperado:
-- Aparece una nota en `vault/calls/`
-- 5-30 notas en `vault/inbox/`
-- Puntos nuevos en Qdrant (verlos en el dashboard)
-
-```powershell
-enigma ask "¿De qué se habló en la última llamada?"
+# Pregunta sobre el corpus:
+uv run enigma ask "¿De qué se habló en la última llamada?"
 ```
 
 ---
 
 ## Troubleshooting
 
-**`faster-whisper` falla al cargar modelo en GPU**
-→ Verificar driver NVIDIA y CUDA 12. Si no tienes GPU, en `.env`: `WHISPER_DEVICE=cpu`.
+**`uv`, `ollama` o `ffmpeg` "no se reconoce" tras instalarlos**
+→ Reabre la terminal: winget actualiza el PATH pero la sesión abierta no lo
+ve. `bootstrap.ps1` refresca el PATH dentro de su propia ejecución.
+
+**La diarización falla / no distingue hablantes**
+→ Necesita FFmpeg **shared build** (`Gyan.FFmpeg.Shared`) en el PATH; el
+build estático no sirve. Y `PYANNOTE_AUTH_TOKEN` relleno en `.env`. Sin
+esto, la transcripción funciona igual pero sin hablantes.
+
+**Qdrant no responde en `:6333`**
+→ Comprueba que Docker Desktop está arrancado. `docker compose logs qdrant`.
+Causa común: el puerto 6333 ya está ocupado.
+
+**Docker Desktop pide reiniciar / WSL2**
+→ Es normal en la primera instalación. Reinicia Windows, arranca Docker
+Desktop y reejecuta `.\scripts\bootstrap.ps1`.
 
 **Ollama no responde**
-→ Reiniciar el servicio: `Get-Service Ollama | Restart-Service` (PowerShell admin).
+→ Reinicia el servicio (PowerShell como administrador):
+`Get-Service Ollama | Restart-Service`.
 
-**Conflicto Git en el Vault**
-→ En Obsidian: `Ctrl+P` → `Git: Pull` → resolver manualmente en VSCode → `Git: Commit and push`.
+**`faster-whisper` falla al cargar el modelo en GPU**
+→ Verifica el driver NVIDIA y CUDA 12. Sin GPU, en `.env`: `WHISPER_DEVICE=cpu`.
 
-**Qdrant no arranca**
-→ `docker compose logs qdrant`. Causa común: puerto 6333 ocupado.
+**Conflicto de Git en el Vault**
+→ En Obsidian: `Ctrl+P` → `Git: Pull`, resuelve el conflicto en el `.md` y
+`Git: Commit and push`.
 
-**Antivirus bloquea el watcher**
-→ Excluir `C:\Users\manul\Enigma_V3` de Windows Defender.
+**El antivirus bloquea el file watcher (`enigma watch`)**
+→ Excluye la carpeta del repo en Windows Defender.
 
 ---
 
-## Comandos útiles
+## Referencia de comandos
 
 ```powershell
-# estado del sistema
-enigma status
+# Pipeline de ingesta
+uv run enigma ingest <audio>        # audio → notas en el Vault
+uv run enigma watch                 # re-vectoriza el Vault al detectar cambios
 
-# listar llamadas procesadas
-enigma list calls
+# Consulta
+uv run enigma search "<consulta>"   # notas top-k por similitud semántica
+uv run enigma ask "<pregunta>"      # respuesta RAG con citas
+uv run enigma serve                 # API REST (POST /ask)
 
-# reprocesar una llamada (idempotente)
-enigma reprocess <call_id>
+# Agente analítico (regeneran índices en el Vault)
+uv run enigma summarize call <id>   # resumen ejecutivo de una llamada
+uv run enigma decisions             # decisions.md — decisiones del corpus
+uv run enigma tasks                 # tasks.md — tareas pendientes
+uv run enigma contradictions        # contradictions.md — contradicciones
+uv run enigma themes                # recurring-themes.md — ideas recurrentes
+uv run enigma serendipity           # serendipity.md — conexiones no obvias
 
-# reconstruir Qdrant desde el Vault (si se corrompe)
-python scripts/reindex.py
+# Inspección
+uv run enigma list calls            # llamadas registradas
+uv run enigma list notes --last 7d  # notas recientes
+uv run enigma orphans               # marca notas sin conexiones
 
-# logs
-Get-Content data\logs\enigma.log -Wait
+# Reconstruir Qdrant desde el Vault (si se desincroniza)
+uv run python scripts/reindex.py
 ```
