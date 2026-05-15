@@ -100,8 +100,8 @@
 
 - [x] **T-201** Wrapper de Qdrant en `vector/qdrant_client.py` con `upsert`, `search`, `delete`
   - *Aceptación:* tests CRUD pasan contra Qdrant local
-- [ ] **T-202** Embedder con Ollama (`nomic-embed-text`)
-  - *Aceptación:* embebe nota en < 100ms en CPU
+- [x] **T-202** Embedder con Ollama (`nomic-embed-text`)
+  - *Aceptación:* embebe nota en < 100ms en CPU *(verificado: `test_embed_text_real_latency_under_100ms_when_warm` pasa)*
 - [ ] **T-203** Vectorizar todas las notas existentes con script `scripts/reindex.py`
   - *Aceptación:* Qdrant queda sincronizado con `vault/`
 - [ ] **T-204** File watcher en `workers/watcher.py` que vectoriza al detectar cambios en `vault/`
@@ -189,7 +189,7 @@ Actualizar manualmente al cierre de cada fase:
 |---|---|---|---|---|
 | 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 15 | 100% | ✅ Fase 1 completa. LLM por defecto `qwen2.5:7b` (T-107). T-108 dedup textual; embeddings reales en Fase 2. T-103 usa `pyannote/speaker-diarization-community-1` + FFmpeg shared. |
-| 2 | 7 | 1 | 14% | — |
+| 2 | 7 | 2 | 29% | — |
 | 3 | 5 | 0 | 0% | — |
 | 4 | 6 | 0 | 0% | — |
 | 5 | 6 | 0 | 0% | — |
