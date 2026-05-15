@@ -28,9 +28,9 @@
   - *Aceptación:* commit con código mal formateado se bloquea
 - [x] **T-005** Crear `docker-compose.yml` con servicio Qdrant
   - *Aceptación:* `docker compose up qdrant` deja Qdrant respondiendo en `http://localhost:6333/dashboard`
-- [ ] **T-006** Instalar Ollama localmente y descargar el LLM + embedder
+- [x] **T-006** Instalar Ollama localmente y descargar el LLM + embedder
   - *Aceptación:* `ollama run <llm_model> "Hola"` responde **y** `nomic-embed-text` está disponible.
-  - **Estado:** parcial. Ollama instalado; `qwen2.5:7b` operativo como LLM por defecto (ver `PLAN.md §1` y commit T-107). `llama3.1:8b` opcional y `nomic-embed-text` bloqueante para Fase 2; ambos fallan en `ollama pull` por error TLS (`x509: certificate signed by unknown authority`) contra el CDN de Ollama; pendiente diagnosticar AV/cert store.
+  - **Estado:** completado. Modelos descargados: `llama3.1:8b` (4.9 GB), `nomic-embed-text` (274 MB, 768 dims), `qwen2.5:7b`, `llama3.2:3b`. El error TLS de la sesión anterior resultó ser **transitorio** (blip de red, no SSL inspection — los certs de `registry.ollama.ai` y `*.r2.cloudflarestorage.com` son legítimos de Google Trust Services). `qwen2.5:7b` sigue como LLM por defecto; comparar contra `llama3.1:8b` queda como tarea de evaluación futura antes de fijar el default oficial.
 - [x] **T-007** Crear `src/enigma/config.py` con `Pydantic Settings` cargando `.env`
   - *Aceptación:* `python -c "from enigma.config import settings; print(settings)"` imprime config
 - [x] **T-008** Crear estructura de carpetas según `PLAN.md` §3 con `__init__.py` en todos los paquetes
@@ -186,7 +186,7 @@ Actualizar manualmente al cierre de cada fase:
 
 | Fase | Tareas totales | Tareas completadas | % | Bloqueantes |
 |---|---|---|---|---|
-| 0 | 10 | 9 | 90% | T-006 bloqueado por error TLS al descargar de la CDN de Ollama (AV/cert store); modelos `llama3.2:3b` y `qwen2.5:7b` disponibles localmente como fallback temporal. |
+| 0 | 10 | 10 | 100% | — |
 | 1 | 15 | 14 | 93% | LLM por defecto cambiado a `qwen2.5:7b` (ver T-107 / PLAN.md §1). T-108 cubre dedup con heurística textual; embeddings reales llegan en Fase 2. **Único pendiente: T-103** (diarización) — bloqueado por HF token + aceptación de términos del modelo `pyannote/speaker-diarization-3.1`. NB: HuggingFace SÍ funciona (Whisper descarga modelos OK); el bloqueo TLS afecta solo al CDN de Ollama (R2). |
 | 2 | 7 | 0 | 0% | — |
 | 3 | 5 | 0 | 0% | — |
