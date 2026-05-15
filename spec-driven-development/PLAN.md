@@ -115,6 +115,7 @@ Enigma_V3/
 │       ├── api.py                  # FastAPI app
 │       ├── config.py               # Pydantic Settings
 │       ├── pipeline.py             # orquestación end-to-end audio → Vault
+│       ├── search.py               # búsqueda semántica top-k (enigma search)
 │       ├── db/                     # SQLite shared infra (calls, transcripts, jobs)
 │       │   ├── sqlite.py           # get_connection + init_schema
 │       │   └── calls.py            # CRUD para la tabla `calls`
@@ -140,7 +141,8 @@ Enigma_V3/
 │       │   ├── embedder.py         # embeddings con nomic-embed-text
 │       │   └── reindexer.py        # reindexado completo Vault → Qdrant
 │       ├── agent/
-│       │   ├── rag.py
+│       │   ├── rag.py                # pipeline RAG (retrieve + LLM + citas)
+│       │   ├── prompts.py            # prompts del RAG / agente
 │       │   ├── summarizer.py
 │       │   ├── contradictions.py
 │       │   └── tasks_extractor.py
@@ -172,6 +174,8 @@ Enigma_V3/
 
 ### 4.1 ¿Por qué LlamaIndex y no LangChain?
 LlamaIndex tiene mejor primitivas para *retrieval* puro (que es el 80% de lo que hace Enigma). LangChain es más generalista pero más pesado y con APIs cambiantes. Si en v2 necesitamos agentes complejos multi-tool, reevaluamos.
+
+> **Desviación (T-302, 2026-05-15):** el pipeline RAG de Fase 3 se implementó **sin LlamaIndex**. El *retrieval* (embed query → `nomic-embed-text` → búsqueda en Qdrant) ya estaba resuelto con código propio en Fases 2-3 (`vector/`, `search.py`), y la generación es una única llamada a `ollama.chat` con un prompt que fuerza citas `[[wikilink]]`. Envolver esas piezas en `QdrantVectorStore` + `QueryEngine` de LlamaIndex añadiría una capa de abstracción sobre componentes que ya controlamos, sin aportar valor para un equipo de 6 personas — y CONSTITUTION §6 exige justificar cada dependencia. El flujo RAG vive en `src/enigma/agent/rag.py` + `agent/prompts.py`. LlamaIndex queda como dependencia no usada; se reevaluará si Fase 4 (agente multi-tool) lo necesita.
 
 ### 4.2 ¿Por qué Qdrant y no PGVector / Chroma?
 - **Chroma:** embebido y simple, pero filtrado por metadatos limitado.

@@ -6,7 +6,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from enigma.models.note import Note, NoteSource
-from enigma.vault.reader import list_vault_notes, read_note, read_note_summary
+from enigma.vault.reader import (
+    list_vault_notes,
+    load_notes_by_ids,
+    read_note,
+    read_note_summary,
+)
 from enigma.vault.writer import upsert_note
 
 
@@ -176,3 +181,39 @@ def test_read_note_body_excludes_origen_section(tmp_path: Path) -> None:
     assert loaded is not None
     assert loaded.body == "Cuerpo limpio de la idea."
     assert "Origen" not in loaded.body
+
+
+# ── load_notes_by_ids ───────────────────────────────────────────────────────
+
+
+def test_load_notes_by_ids_recovers_requested_notes(tmp_path: Path) -> None:
+    wanted = _note(title="Buscada")
+    other = _note(title="Otra")
+    upsert_note(wanted, vault_dir=tmp_path / "inbox")
+    upsert_note(other, vault_dir=tmp_path / "notes")
+    loaded = load_notes_by_ids({wanted.id}, vault_path=tmp_path)
+    assert set(loaded) == {wanted.id}
+    assert loaded[wanted.id].title == "Buscada"
+
+
+def test_load_notes_by_ids_spans_inbox_and_notes(tmp_path: Path) -> None:
+    in_inbox = _note(title="Inbox")
+    in_notes = _note(title="Notes")
+    upsert_note(in_inbox, vault_dir=tmp_path / "inbox")
+    upsert_note(in_notes, vault_dir=tmp_path / "notes")
+    loaded = load_notes_by_ids({in_inbox.id, in_notes.id}, vault_path=tmp_path)
+    assert set(loaded) == {in_inbox.id, in_notes.id}
+
+
+def test_load_notes_by_ids_empty_set_returns_empty(tmp_path: Path) -> None:
+    upsert_note(_note(), vault_dir=tmp_path / "inbox")
+    assert load_notes_by_ids(set(), vault_path=tmp_path) == {}
+
+
+def test_load_notes_by_ids_skips_missing_ids(tmp_path: Path) -> None:
+    """Un id que no existe en disco simplemente no aparece en el resultado."""
+    present = _note(title="Existe")
+    upsert_note(present, vault_dir=tmp_path / "inbox")
+    ghost = uuid4()
+    loaded = load_notes_by_ids({present.id, ghost}, vault_path=tmp_path)
+    assert set(loaded) == {present.id}

@@ -152,3 +152,44 @@ def list_vault_notes(
 
     summaries.sort(key=lambda s: s.created_at, reverse=True)
     return summaries
+
+
+def load_notes_by_ids(
+    note_ids: set[UUID],
+    vault_path: Path | None = None,
+    *,
+    subdirs: tuple[str, ...] = _DEFAULT_SUBDIRS,
+) -> dict[UUID, Note]:
+    """Carga las notas del Vault cuyo `id` esté en `note_ids`.
+
+    Hace **una sola pasada** por el Vault (no un lookup por id), así que es
+    O(N) una vez en vez de O(k·N). Necesaria para el RAG (T-302): la búsqueda
+    semántica devuelve `note_id`s pero el payload Qdrant no trae el cuerpo, y
+    el RAG necesita el cuerpo como contexto.
+
+    Args:
+        note_ids: Conjunto de identificadores a recuperar.
+        vault_path: Raíz del Vault. Default `settings.enigma_vault_path`.
+        subdirs: Subcarpetas a recorrer. Default `("inbox", "notes")`.
+
+    Returns:
+        Mapa `{note_id: Note}` solo de las notas encontradas **en disco**.
+        Un `note_id` indexado en Qdrant pero cuyo fichero ya no existe (o no
+        parsea) simplemente no aparece en el resultado.
+    """
+    if not note_ids:
+        return {}
+
+    root = vault_path if vault_path is not None else settings.enigma_vault_path
+    found: dict[UUID, Note] = {}
+    for subdir in subdirs:
+        directory = root / subdir
+        if not directory.is_dir():
+            continue
+        for md_file in directory.glob("*.md"):
+            note = read_note(md_file)
+            if note is not None and note.id in note_ids:
+                found[note.id] = note
+            if len(found) == len(note_ids):
+                return found
+    return found
