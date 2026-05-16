@@ -1,28 +1,41 @@
-"""API REST interna de Enigma (T-305, RF-14).
+"""API REST interna de Enigma (T-305, RF-14) + interfaz web.
 
-Expone el pipeline RAG (T-302) como un endpoint HTTP para que clientes
-distintos de la CLI (p.ej. un plugin de Obsidian o un script) puedan
-consultar el Vault:
+Expone el pipeline de Enigma por HTTP y sirve una interfaz web sobre la misma
+app (`src/enigma/web/`), para que el equipo pueda usar Enigma desde el
+navegador además de la CLI:
 
-- `GET  /health` → sanity-check, sin tocar el LLM ni Qdrant.
-- `POST /ask`    → pregunta en lenguaje natural → respuesta RAG con citas.
+- `GET  /`        → interfaz web (single-page).
+- `GET  /health`  → sanity-check, sin tocar el LLM ni Qdrant.
+- `GET  /stats`   → métricas del sistema (corpus, actividad, salud).
+- `GET  /search`  → búsqueda semántica top-k de notas.
+- `POST /ask`     → pregunta en lenguaje natural → respuesta RAG con citas.
 
-La app se sirve con `enigma serve` (uvicorn). `RagAnswer` ya es un modelo
-Pydantic, así que FastAPI serializa la respuesta — incluidas `citations` y
-`sources` — a JSON sin trabajo extra.
+La app se sirve con `enigma serve` (uvicorn). Los modelos de respuesta ya son
+Pydantic, así que FastAPI los serializa a JSON sin trabajo extra.
 """
 
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from enigma import __version__
 from enigma.agent.rag import RagAnswer, RagError, answer_question
+from enigma.search import SearchResult, search_notes
+from enigma.stats import EnigmaStats, gather_stats
+
+_WEB_DIR = Path(__file__).parent / "web"
 
 app = FastAPI(
     title="Enigma API",
     version=__version__,
-    description="Segundo cerebro conversacional local-first — endpoint RAG.",
+    description="Segundo cerebro conversacional local-first — RAG + interfaz web.",
 )
+
+# Activos estáticos de la interfaz web (CSS, JS).
+app.mount("/static", StaticFiles(directory=_WEB_DIR), name="static")
 
 
 class AskRequest(BaseModel):
@@ -46,10 +59,36 @@ class AskRequest(BaseModel):
         return value
 
 
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    """Sirve la interfaz web de Enigma."""
+    return FileResponse(_WEB_DIR / "index.html")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Sanity-check del servicio. No consulta el LLM ni Qdrant."""
     return {"status": "ok", "version": __version__}
+
+
+@app.get("/stats", response_model=EnigmaStats)
+def stats() -> EnigmaStats:
+    """Métricas del sistema: corpus, actividad y sondeo de salud en vivo."""
+    return gather_stats()
+
+
+@app.get("/search", response_model=list[SearchResult])
+def search(
+    q: str = Query(..., min_length=1, description="Consulta en lenguaje natural."),
+    top_k: int = Query(5, ge=1, le=50, description="Número de notas a recuperar."),
+) -> list[SearchResult]:
+    """Búsqueda semántica de notas en el Vault.
+
+    Una consulta en blanco se rechaza con 422.
+    """
+    if not q.strip():
+        raise HTTPException(status_code=422, detail="La consulta no puede estar vacía.")
+    return search_notes(q, top_k=top_k)
 
 
 @app.post("/ask", response_model=RagAnswer)

@@ -112,7 +112,8 @@ Enigma_V3/
 │   └── enigma/
 │       ├── __init__.py
 │       ├── cli.py                  # Typer entrypoint (version, ingest, list)
-│       ├── api.py                  # FastAPI app
+│       ├── api.py                  # FastAPI app (API REST + sirve la web)
+│       ├── web/                    # interfaz web (index.html, style.css, app.js)
 │       ├── config.py               # Pydantic Settings
 │       ├── pipeline.py             # orquestación end-to-end audio → Vault
 │       ├── search.py               # búsqueda semántica top-k (enigma search)
@@ -251,6 +252,12 @@ El "modo serendipia" propone conexiones sorprendentes entre notas distantes — 
 - **Banda de similitud media:** los pares candidatos no son los más similares (obvios, ya cubiertos por wikilinks) ni los más lejanos (ruido), sino los de una **ventana** `[serendipity_min_similarity, serendipity_max_similarity)` = `[0.63, 0.74)`. Mantenerse por debajo del umbral de wikilink (0.78) aproxima "conexiones nuevas".
 - **Juicio del LLM:** para cada par de la banda, el LLM decide si unirlas produce una idea genuinamente valiosa (analogía, causa común, oportunidad). Muy selectivo: ante la duda, `false`.
 - **Tope:** se confirman como máximo `serendipity_max_suggestions` (5) conexiones — los pares se evalúan en orden determinista y el proceso se detiene al llegar a 5. Resultado en `vault/serendipity.md` (`enigma serendipity`). Implementación en `src/enigma/agent/serendipity.py`.
+
+### 4.12 Interfaz web
+
+> **Adición post-spec (2026-05-16):** a petición del usuario se añadió una interfaz web; no estaba en el SPEC original (que preveía solo CLI + API REST).
+
+La web es una single-page servida por el **mismo FastAPI** de `api.py` — sin toolchain de frontend (ni npm, ni build), fiel al stack mínimo de la Constitution. Activos estáticos en `src/enigma/web/` (`index.html`, `style.css`, `app.js` vanilla), montados en `/static`; `GET /` sirve la página. Reutiliza endpoints existentes/nuevos: `POST /ask`, `GET /stats`, `GET /search`. Se arranca con `enigma serve` y se abre en `http://127.0.0.1:8077`.
 
 ## 5. Modelo de despliegue
 

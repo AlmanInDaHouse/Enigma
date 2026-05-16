@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Enigma · segundo cerebro del equipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+  rel="stylesheet"
+/>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<canvas id="constellation" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+      <line x1="8" y1="10" x2="26" y2="7" /><line x1="8" y1="10" x2="13" y2="27" />
+      <line x1="26" y1="7" x2="29" y2="22" /><line x1="13" y1="27" x2="29" y2="22" />
+      <line x1="26" y1="7" x2="13" y2="27" />
+      <circle cx="8" cy="10" r="3" /><circle cx="26" cy="7" r="3.6" class="lit" />
+      <circle cx="13" cy="27" r="3" /><circle cx="29" cy="22" r="2.6" />
+    </svg>
+    <span class="brand-text">
+      <span class="brand-name">Enigma</span>
+      <span class="brand-sub">segundo cerebro del equipo</span>
+    </span>
+  </a>
+  <div class="status" id="status" title="Estado de los servicios">
+    <span class="status-pill" data-svc="qdrant"><i></i>Qdrant</span>
+    <span class="status-pill" data-svc="ollama"><i></i>Ollama</span>
+  </div>
+</header>
+
+<main>
+  <section class="hero reveal">
+    <p class="eyebrow">Local-first · Zettelkasten · RAG sobre LLM local</p>
+    <h1 class="hero-title">Pregúntale a la<br /><em>memoria</em> del equipo.</h1>
+    <p class="hero-lede">
+      Enigma destila vuestras llamadas en un grafo de notas atómicas conectadas.
+      Pregunta en lenguaje natural — responde citando sus propias fuentes.
+    </p>
+    <form class="ask" id="ask-form" autocomplete="off">
+      <input
+        id="ask-input"
+        type="text"
+        placeholder="¿Qué decidimos sobre la revisión del inbox?"
+        aria-label="Pregunta para Enigma"
+      />
+      <button type="submit" id="ask-btn">
+        <span>Preguntar</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+      </button>
+    </form>
+  </section>
+
+  <section class="answer-wrap" id="answer-wrap" hidden aria-live="polite"></section>
+
+  <section class="panel reveal" id="stats-panel">
+    <div class="panel-head">
+      <span class="panel-kicker">01 — corpus</span>
+      <h2>Lo que Enigma ya recuerda</h2>
+    </div>
+    <div class="stat-grid" id="stat-grid">
+      <div class="stat-skeleton"></div><div class="stat-skeleton"></div>
+      <div class="stat-skeleton"></div><div class="stat-skeleton"></div>
+    </div>
+  </section>
+
+  <section class="panel reveal" id="search-panel">
+    <div class="panel-head">
+      <span class="panel-kicker">02 — grafo</span>
+      <h2>Buscar entre las notas</h2>
+    </div>
+    <form class="search" id="search-form" autocomplete="off">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Busca por idea, tema o palabra…"
+        aria-label="Búsqueda semántica"
+      />
+      <button type="submit">Buscar</button>
+    </form>
+    <div class="results" id="search-results">
+      <p class="results-hint">La búsqueda es semántica: encuentra por significado, no por palabra exacta.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="footer-line">
+    <span class="dot"></span>
+    Todo corre en una máquina del equipo. Sin nube, sin telemetría — vuestro conocimiento es vuestro.
+  </div>
+  <div class="footer-meta">Enigma · local-first second brain</div>
+</footer>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>
