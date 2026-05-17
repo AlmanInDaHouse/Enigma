@@ -190,6 +190,28 @@
 
 ---
 
+## Fase 6 — Comunicación en tiempo real (post-MVP)
+
+> Objetivo: Enigma deja de ser solo un pipeline batch y se convierte en el
+> espacio donde el equipo se comunica — chat y llamadas — con el pipeline
+> destilando ese material en conocimiento consultable.
+>
+> **Ampliación de alcance** a petición del usuario (2026-05-16). No estaba en
+> el `SPEC.md` original. Arquitectura en `PLAN.md §4.13`. Se construye por
+> fases (W1-W4), cada una usable al cerrarse.
+
+- [x] **T-601 (W1)** Chat en vivo del equipo
+  - *Aceptación:* mensajes en tiempo real entre varios clientes, persistidos y con historial
+  - **Nota:** shell de app web (barra lateral, identidad, canales) + chat por WebSocket. `models/message.py`, tabla `messages` en SQLite, `db/messages.py`, hub `realtime.py` (`ConnectionManager` — presencia + difusión), endpoint `WS /ws` y `GET /channels` en `api.py`. Canales fijos (`general`/`producto`/`random`). Sin login: cada uno elige un nombre (localStorage). El panel "Consultar" (RAG + búsqueda + stats) queda integrado en la app. Frontend reescrito como shell; tema visual reutilizado del frontend previo.
+- [ ] **T-602 (W2)** Llamadas WebRTC en vivo
+  - *Aceptación:* vídeo/audio entre el equipo + compartir pantalla; señalización sobre `/ws`
+- [ ] **T-603 (W3)** Grabar la llamada → pipeline
+  - *Aceptación:* al colgar, la grabación entra en `ingest_audio` (job en background) y se convierte en notas
+- [ ] **T-604 (W4)** Consulta integrada y pulido
+  - *Aceptación:* la llamada procesada queda enlazada a sus notas y consultable desde la app
+
+---
+
 ## Backlog (no priorizado todavía)
 
 - Captura de audio en tiempo real durante la llamada
@@ -215,3 +237,4 @@ Actualizar manualmente al cierre de cada fase:
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
+| 6 | 4 | 1 | 25% | Ampliación post-MVP (comunicación). W1 chat en vivo (WebSocket) hecho. Pendiente: W2 llamadas WebRTC, W3 grabar→pipeline, W4 consulta integrada. Ver `PLAN.md §4.13`. |

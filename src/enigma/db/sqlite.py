@@ -34,6 +34,20 @@ CREATE_CALLS_HASH_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_calls_content_hash ON calls(content_hash);
 """
 
+CREATE_MESSAGES_TABLE = """
+CREATE TABLE IF NOT EXISTS messages (
+    id          TEXT PRIMARY KEY,
+    channel     TEXT NOT NULL,
+    author      TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+"""
+
+CREATE_MESSAGES_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel, created_at);
+"""
+
 
 def db_path() -> Path:
     """Ruta al fichero SQLite (resuelta cada vez para respetar overrides de settings)."""
@@ -44,6 +58,8 @@ def init_schema(conn: sqlite3.Connection) -> None:
     """Crea tablas e índices idempotentemente."""
     conn.execute(CREATE_CALLS_TABLE)
     conn.execute(CREATE_CALLS_HASH_INDEX)
+    conn.execute(CREATE_MESSAGES_TABLE)
+    conn.execute(CREATE_MESSAGES_INDEX)
     conn.commit()
 
 

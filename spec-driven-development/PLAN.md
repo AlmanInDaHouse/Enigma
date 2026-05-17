@@ -112,7 +112,8 @@ Enigma_V3/
 │   └── enigma/
 │       ├── __init__.py
 │       ├── cli.py                  # Typer entrypoint (version, ingest, list)
-│       ├── api.py                  # FastAPI app (API REST + sirve la web)
+│       ├── api.py                  # FastAPI app (API REST + WebSocket + sirve la web)
+│       ├── realtime.py             # hub WebSocket: chat + presencia (Fase 6)
 │       ├── web/                    # interfaz web (index.html, style.css, app.js)
 │       ├── config.py               # Pydantic Settings
 │       ├── pipeline.py             # orquestación end-to-end audio → Vault
@@ -258,6 +259,16 @@ El "modo serendipia" propone conexiones sorprendentes entre notas distantes — 
 > **Adición post-spec (2026-05-16):** a petición del usuario se añadió una interfaz web; no estaba en el SPEC original (que preveía solo CLI + API REST).
 
 La web es una single-page servida por el **mismo FastAPI** de `api.py` — sin toolchain de frontend (ni npm, ni build), fiel al stack mínimo de la Constitution. Activos estáticos en `src/enigma/web/` (`index.html`, `style.css`, `app.js` vanilla), montados en `/static`; `GET /` sirve la página. Reutiliza endpoints existentes/nuevos: `POST /ask`, `GET /stats`, `GET /search`. Se arranca con `enigma serve` y se abre en `http://127.0.0.1:8077`.
+
+### 4.13 Comunicación en tiempo real (Fase 6)
+
+> **Ampliación post-MVP (2026-05-16):** a petición del usuario, Enigma pasa de ser un pipeline batch a ser también el **espacio de comunicación del equipo** — chat y llamadas — con el pipeline destilando ese material. No estaba en el `SPEC.md` original.
+
+- **Un solo proceso:** todo se sirve desde el FastAPI de `api.py`. El WebSocket `/ws` multiplexa por el campo `type` del mensaje: chat, presencia y (W2) señalización WebRTC. El estado en vivo (conexiones, presencia) vive en memoria — proceso único, equipo ≤6 (CONSTITUTION §7); los mensajes de chat sí se persisten en SQLite (tabla `messages`).
+- **Llamadas peer-to-peer (W2):** el audio/vídeo viaja **directo entre navegadores** vía WebRTC en malla (cada par ↔ cada par — viable para ≤6). El servidor solo **relaya señalización** (SDP + ICE), nunca toca los medios. STUN configurable (sin TURN por defecto: llamadas entre redes con NAT estricto pueden fallar — limitación documentada). Nada de SFU/LiveKit (infra pesada).
+- **El bucle (W3):** una llamada se graba en el navegador (`MediaRecorder`); al colgar se sube y entra en `ingest_audio` como job en segundo plano → notas → consultable. Reutiliza el pipeline entero sin tocarlo.
+- **Sin login:** identidad ligera (un nombre en `localStorage`). Auth real = backlog.
+- Fases: W1 chat (hecho) · W2 llamadas WebRTC · W3 grabar→pipeline · W4 consulta integrada. Ver `TASKS.md` Fase 6.
 
 ## 5. Modelo de despliegue
 

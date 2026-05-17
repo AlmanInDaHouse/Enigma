@@ -5,15 +5,18 @@ contrato del endpoint sin tocar el pipeline RAG real.
 """
 
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from enigma.agent.rag import Citation, RagAnswer, RagError
 from enigma.api import app
 from enigma.cli import app as cli_app
+from enigma.config import settings
 from enigma.search import SearchResult
 from enigma.stats import ActivityStats, CorpusStats, EnigmaStats, HealthProbe
 
@@ -183,6 +186,42 @@ def test_search_blank_query_returns_422() -> None:
 def test_search_missing_query_returns_422() -> None:
     response = client.get("/search")
     assert response.status_code == 422
+
+
+# ── GET /channels ────────────────────────────────────────────────────────────
+
+
+def test_channels_lists_fixed_channels() -> None:
+    response = client.get("/channels")
+    assert response.status_code == 200
+    assert "general" in response.json()
+
+
+# ── WebSocket /ws ────────────────────────────────────────────────────────────
+
+
+def test_ws_hello_returns_presence_and_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "hello", "name": "Ana"})
+        received = {ws.receive_json()["type"], ws.receive_json()["type"]}
+    assert received == {"presence", "history"}
+
+
+def test_ws_chat_is_broadcast(tmp_path: object, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "hello", "name": "Ana"})
+        ws.receive_json()
+        ws.receive_json()
+        ws.send_json({"type": "chat", "channel": "general", "body": "hola equipo"})
+        chat = ws.receive_json()
+    assert chat["type"] == "chat"
+    assert chat["message"]["body"] == "hola equipo"
+    assert chat["message"]["author"] == "Ana"
+    assert chat["message"]["channel"] == "general"
 
 
 # ── enigma serve ─────────────────────────────────────────────────────────────
