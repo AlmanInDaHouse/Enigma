@@ -768,6 +768,14 @@ body::before {
 .call-status.done { color: var(--teal); border-color: rgba(116, 196, 186, 0.4); }
 .call-status.work { color: var(--amber); border-color: rgba(236, 180, 85, 0.4); }
 .call-status.fail { color: var(--bad); border-color: rgba(217, 122, 110, 0.4); }
+.call-row-cta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal);
+  flex-shrink: 0;
+}
 
 /* ── Modal (detalle de llamada) ───────────────────────────────────────── */
 
@@ -846,6 +854,32 @@ body::before {
 
 .call-row.clickable { cursor: pointer; transition: border-color 0.18s, background 0.18s; }
 .call-row.clickable:hover { border-color: var(--line-bright); background: var(--ink-3); }
+
+/* ── Modal: detalle de llamada (T-703) ────────────────────────────────── */
+.modal-section { margin-top: 22px; }
+.modal-section:first-of-type { margin-top: 4px; }
+.modal-section-title {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 11px;
+}
+.modal-tldr { font-size: 14.5px; line-height: 1.55; }
+.modal-list {
+  margin: 11px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.modal-list li { color: var(--text); }
+.modal-tldr + .modal-list { margin-top: 13px; }
+.modal-list + .chip-row { margin-top: 14px; }
+.modal-assignee { color: var(--teal); font-size: 12.5px; }
 
 /* ── Animaciones ──────────────────────────────────────────────────────── */
 

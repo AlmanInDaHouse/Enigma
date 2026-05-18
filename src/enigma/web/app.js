@@ -680,19 +680,23 @@ async function loadCalls() {
         const when = new Date(call.recorded_at).toLocaleString("es-ES");
         const mins = (call.duration_seconds / 60).toFixed(1);
         const title = call.title || "Llamada";
+        const trailing =
+          call.status === "done"
+            ? '<span class="call-row-cta">Consultar llamada grabada ▸</span>'
+            : `<span class="call-status ${st.cls}">${escapeHtml(st.label)}</span>`;
         return `<div class="call-row clickable" data-id="${escapeHtml(call.id)}"
             data-title="${escapeHtml(title)}" data-status="${escapeHtml(call.status)}">
           <div class="call-row-main">
             <div class="call-row-title">${escapeHtml(title)}</div>
             <div class="call-row-meta">${escapeHtml(when)} · ${mins} min</div>
           </div>
-          <span class="call-status ${st.cls}">${escapeHtml(st.label)}</span>
+          ${trailing}
         </div>`;
       })
       .join("");
   box.querySelectorAll(".call-row").forEach((row) => {
     row.addEventListener("click", () =>
-      openCallNotes(row.dataset.id, row.dataset.title, row.dataset.status)
+      openCallDetail(row.dataset.id, row.dataset.title, row.dataset.status)
     );
   });
 }
@@ -719,7 +723,7 @@ function setupModal() {
   });
 }
 
-async function openCallNotes(callId, title, status) {
+async function openCallDetail(callId, title, status) {
   const head = `<h3 class="modal-title">${escapeHtml(title)}</h3>`;
   if (status !== "done") {
     const st = CALL_STATUS[status] || { label: status };
@@ -729,24 +733,49 @@ async function openCallNotes(callId, title, status) {
     );
     return;
   }
-  openModal(`${head}<p class="modal-sub">cargando notas…</p>`);
-  let notes;
+  openModal(
+    `${head}<p class="modal-sub">Consultando la llamada grabada…</p>
+     <p class="modal-empty"><span class="orb"></span> Enigma está analizando lo que se dijo:
+     resumen, decisiones y tareas. Puede tardar unos segundos.</p>`
+  );
+  let detail;
   try {
-    notes = await getJSON(`/calls/${encodeURIComponent(callId)}/notes`);
+    detail = await getJSON(`/calls/${encodeURIComponent(callId)}/detail`);
   } catch (err) {
-    openModal(`${head}<p class="modal-empty">No se pudieron cargar las notas: ${escapeHtml(
-      err.message
-    )}</p>`);
-    return;
-  }
-  if (!notes.length) {
     openModal(
-      `${head}<p class="modal-sub">sin notas</p>
-       <p class="modal-empty">Esta llamada no produjo notas atómicas.</p>`
+      `${head}<p class="modal-empty">No se pudo consultar la llamada: ${escapeHtml(
+        err.message
+      )}</p>`
     );
     return;
   }
-  const list = notes
+  openModal(head + renderCallDetail(detail));
+}
+
+function renderCallDetail(d) {
+  const sections = [];
+
+  if (d.summary) {
+    const points = (d.summary.key_points || [])
+      .map((p) => `<li>${escapeHtml(p)}</li>`)
+      .join("");
+    const topics = (d.summary.topics || [])
+      .map((t) => `<span class="chip">${escapeHtml(t)}</span>`)
+      .join("");
+    sections.push(`<div class="modal-section">
+      <h4 class="modal-section-title">Resumen de Enigma</h4>
+      <p class="modal-tldr">${escapeHtml(d.summary.tldr)}</p>
+      ${points ? `<ul class="modal-list">${points}</ul>` : ""}
+      ${topics ? `<div class="chip-row">${topics}</div>` : ""}
+    </div>`);
+  } else {
+    sections.push(`<div class="modal-section">
+      <h4 class="modal-section-title">Resumen de Enigma</h4>
+      <p class="modal-empty">El resumen aún se está generando. Vuelve en un momento.</p>
+    </div>`);
+  }
+
+  const notes = (d.notes || [])
     .map((note) => {
       const tags = (note.tags || []).length ? "#" + note.tags.join("  #") : "sin etiquetas";
       return `<div class="modal-note">
@@ -755,10 +784,41 @@ async function openCallNotes(callId, title, status) {
       </div>`;
     })
     .join("");
-  openModal(
-    `${head}<p class="modal-sub">${notes.length} nota(s) · destiladas por Enigma</p>
-     <div class="modal-notes">${list}</div>`
-  );
+  sections.push(`<div class="modal-section">
+    <h4 class="modal-section-title">Notas atómicas — ${d.notes.length}</h4>
+    ${notes || '<p class="modal-empty">Esta llamada no produjo notas atómicas.</p>'}
+  </div>`);
+
+  const decisions = (d.decisions || [])
+    .map((s) => `<li>${escapeHtml(s)}</li>`)
+    .join("");
+  sections.push(`<div class="modal-section">
+    <h4 class="modal-section-title">Decisiones — ${d.decisions.length}</h4>
+    ${
+      decisions
+        ? `<ul class="modal-list">${decisions}</ul>`
+        : '<p class="modal-empty">No se identificaron decisiones en esta llamada.</p>'
+    }
+  </div>`);
+
+  const tasks = (d.tasks || [])
+    .map((t) => {
+      const who = t.assignee
+        ? ` <span class="modal-assignee">— ${escapeHtml(t.assignee)}</span>`
+        : "";
+      return `<li>${escapeHtml(t.statement)}${who}</li>`;
+    })
+    .join("");
+  sections.push(`<div class="modal-section">
+    <h4 class="modal-section-title">Tareas — ${d.tasks.length}</h4>
+    ${
+      tasks
+        ? `<ul class="modal-list">${tasks}</ul>`
+        : '<p class="modal-empty">No se identificaron tareas en esta llamada.</p>'
+    }
+  </div>`);
+
+  return sections.join("");
 }
 
 /* ── Render de la vista de llamada ───────────────────────────────────── */

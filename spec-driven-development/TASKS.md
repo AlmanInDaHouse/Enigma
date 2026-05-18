@@ -279,10 +279,30 @@
     Qdrant (1→2 puntos) y resumen IA en `vault/calls/`. Tests:
     `test_api.py` (orden ingest→reindex→summarize + aislamiento de fallos),
     `test_register_call.py` (acepta `.webm`).
-- [ ] **T-703** "Consultar llamada grabada" — vista de detalle rica
+- [x] **T-703** "Consultar llamada grabada" — vista de detalle rica
   - *Aceptación:* clicar una llamada en estado `done` muestra lo que la IA
     ingestó y razonó: resumen + notas + decisiones + tareas de esa llamada.
     `GET /calls/{id}/detail` devuelve `{summary, notes, decisions, tasks}`.
+  - **Nota:** `GET /calls/{id}/detail` en `api.py` → `CallDetail`. El
+    **resumen** se lee del fichero `{índice}-summary.md` que generó la
+    ingesta (T-702) — nueva función `read_call_summary` en `summarizer.py`,
+    inverso de `render_summary_markdown` (parsea las 3 secciones fijas;
+    co-localizadas para que el formato viva en un módulo); `null` si aún no
+    existe. **Decisiones y tareas se extraen on-demand** del transcript
+    (`extract_decisions_from_call` + `extract_tasks_from_call`, 2 llamadas
+    LLM, ~10-30 s) — opción A elegida por el usuario frente a parsear los
+    índices `decisions.md`/`tasks.md` (transversales, pueden estar obsoletos).
+    Un fallo de extracción degrada a lista vacía, no rompe la vista; sin
+    transcript persistido no se llama al LLM. Frontend: el modal de llamada
+    (`openCallNotes` → `openCallDetail`) pasa a vista de detalle con 4
+    secciones (resumen / notas / decisiones / tareas) y estado de carga; las
+    llamadas `done` de la lista muestran el CTA **"Consultar llamada grabada
+    ▸"**. Verificado en vivo: `/detail` de la llamada `99e50e81` devuelve el
+    resumen + 1 nota + 3 decisiones + 2 tareas. La verificación de UI en
+    navegador es smoke manual (mismo patrón que la Fase 6). Tests:
+    `test_api.py` (vista completa, 404, resumen ausente, aislamiento de
+    fallos, sin transcript), `test_summarizer.py` (round-trip de
+    `read_call_summary`).
 - [ ] **T-704** Botón "Brainstorming" — la IA razona sobre la llamada
   - *Aceptación:* pulsar "Brainstorming" sobre una llamada devuelve ideas
     nuevas razonadas sobre sus notas (analogías, próximos pasos, preguntas
@@ -329,4 +349,4 @@ Actualizar manualmente al cierre de cada fase:
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
 | 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |
-| 7 | 6 | 2 | 33% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |
+| 7 | 6 | 3 | 50% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail` — resumen + notas + decisiones + tareas). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |

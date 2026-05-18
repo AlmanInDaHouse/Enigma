@@ -178,6 +178,46 @@ def write_call_summary(
     return target
 
 
+def _section_body(text: str, heading: str) -> str:
+    """Cuerpo de la sección `## {heading}` hasta la siguiente `## ` o el final."""
+    marker = f"## {heading}"
+    start = text.find(marker)
+    if start == -1:
+        return ""
+    start += len(marker)
+    end = text.find("\n## ", start)
+    chunk = text[start:] if end == -1 else text[start:end]
+    return chunk.strip()
+
+
+def _section_bullets(text: str, heading: str) -> list[str]:
+    """Items `- ...` de una sección; `[]` si está el placeholder `_Sin..._`."""
+    body = _section_body(text, heading)
+    if body.startswith("_Sin "):
+        return []
+    return [line[2:].strip() for line in body.splitlines() if line.startswith("- ")]
+
+
+def read_call_summary(call: Call, *, vault_path: Path | None = None) -> CallSummary | None:
+    """Lee la nota-resumen de una llamada y la devuelve como `CallSummary`.
+
+    Es el inverso de `render_summary_markdown`: parsea las tres secciones
+    fijas (`## TL;DR`, `## Puntos clave`, `## Temas tratados`) del fichero que
+    escribió `write_call_summary`. Devuelve `None` si la nota aún no existe —
+    la genera `summarize_call`, que corre tras la ingesta.
+    """
+    root = vault_path if vault_path is not None else settings.enigma_vault_path
+    path = root / "calls" / _summary_filename(call)
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8")
+    return CallSummary(
+        tldr=_section_body(text, "TL;DR"),
+        key_points=_section_bullets(text, "Puntos clave"),
+        topics=_section_bullets(text, "Temas tratados"),
+    )
+
+
 def summarize_call(
     call_id: UUID,
     *,

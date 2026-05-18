@@ -16,8 +16,10 @@ import pytest
 from enigma.agent.summarizer import (
     CallSummary,
     SummarizationError,
+    read_call_summary,
     render_summary_markdown,
     summarize_call,
+    write_call_summary,
 )
 from enigma.models.call import Call
 from enigma.models.transcript import Transcript, TranscriptSegment
@@ -99,6 +101,37 @@ def test_render_handles_empty_lists() -> None:
     )
     assert "_Sin puntos clave identificados._" in md
     assert "_Sin temas identificados._" in md
+
+
+# ── read_call_summary (T-703) ───────────────────────────────────────────────
+
+
+def test_read_call_summary_round_trips_what_was_written(tmp_path: Path) -> None:
+    """`read_call_summary` recupera el `CallSummary` que escribió `write_call_summary`."""
+    call = _call()
+    original = _summary()
+    write_call_summary(call, original, vault_path=tmp_path)
+    recovered = read_call_summary(call, vault_path=tmp_path)
+    assert recovered == original
+
+
+def test_read_call_summary_handles_empty_lists(tmp_path: Path) -> None:
+    """Los placeholders `_Sin..._` se leen como listas vacías, no como un item."""
+    call = _call()
+    write_call_summary(
+        call,
+        CallSummary(tldr="Poca cosa.", key_points=[], topics=[]),
+        vault_path=tmp_path,
+    )
+    recovered = read_call_summary(call, vault_path=tmp_path)
+    assert recovered is not None
+    assert recovered.tldr == "Poca cosa."
+    assert recovered.key_points == []
+    assert recovered.topics == []
+
+
+def test_read_call_summary_none_when_file_absent(tmp_path: Path) -> None:
+    assert read_call_summary(_call(), vault_path=tmp_path) is None
 
 
 # ── summarize_call ──────────────────────────────────────────────────────────

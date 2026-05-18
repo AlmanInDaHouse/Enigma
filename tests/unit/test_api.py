@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from enigma.agent.rag import Citation, RagAnswer, RagError
+from enigma.agent.summarizer import CallSummary
 from enigma.api import app
 from enigma.cli import app as cli_app
 from enigma.config import settings
@@ -358,6 +359,96 @@ def test_call_notes_empty_when_no_match() -> None:
         response = client.get(f"/calls/{uuid4()}/notes")
     assert response.status_code == 200
     assert response.json() == []
+
+
+# ── GET /calls/{id}/detail (T-703) ───────────────────────────────────────────
+
+
+def test_call_detail_returns_full_view() -> None:
+    """El detalle reúne resumen IA + notas + decisiones + tareas de la llamada."""
+    call = _call("Daily de producto")
+    summary = CallSummary(
+        tldr="Hablamos de pricing.", key_points=["Subir precios"], topics=["pricing"]
+    )
+    decision = Mock(statement="Subimos el precio un 10%")
+    task = Mock(statement="Preparar la nueva tarifa", assignee="Ana")
+    with (
+        patch("enigma.api.calls_db.get_call", return_value=call),
+        patch("enigma.api.list_vault_notes", return_value=[_note_summary(call.id, "Nota")]),
+        patch("enigma.api.read_call_summary", return_value=summary),
+        patch("enigma.api.load_transcript", return_value=Mock()),
+        patch("enigma.api.extract_decisions_from_call", return_value=[decision]),
+        patch("enigma.api.extract_tasks_from_call", return_value=[task]),
+    ):
+        response = client.get(f"/calls/{call.id}/detail")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"]["tldr"] == "Hablamos de pricing."
+    assert len(body["notes"]) == 1
+    assert body["decisions"] == ["Subimos el precio un 10%"]
+    assert body["tasks"] == [{"statement": "Preparar la nueva tarifa", "assignee": "Ana"}]
+
+
+def test_call_detail_404_when_call_missing() -> None:
+    with patch("enigma.api.calls_db.get_call", return_value=None):
+        response = client.get(f"/calls/{uuid4()}/detail")
+    assert response.status_code == 404
+
+
+def test_call_detail_summary_null_when_not_generated() -> None:
+    """El resumen aún no generado → `summary` es null, la vista responde igual."""
+    call = _call()
+    with (
+        patch("enigma.api.calls_db.get_call", return_value=call),
+        patch("enigma.api.list_vault_notes", return_value=[]),
+        patch("enigma.api.read_call_summary", return_value=None),
+        patch("enigma.api.load_transcript", return_value=None),
+    ):
+        response = client.get(f"/calls/{call.id}/detail")
+    assert response.status_code == 200
+    assert response.json()["summary"] is None
+
+
+def test_call_detail_survives_decision_extraction_failure() -> None:
+    """Si la extracción de decisiones falla, las tareas se devuelven igualmente."""
+    call = _call()
+    task = Mock(statement="Tarea suelta", assignee=None)
+    with (
+        patch("enigma.api.calls_db.get_call", return_value=call),
+        patch("enigma.api.list_vault_notes", return_value=[]),
+        patch("enigma.api.read_call_summary", return_value=None),
+        patch("enigma.api.load_transcript", return_value=Mock()),
+        patch(
+            "enigma.api.extract_decisions_from_call",
+            side_effect=RuntimeError("LLM caído"),
+        ),
+        patch("enigma.api.extract_tasks_from_call", return_value=[task]),
+    ):
+        response = client.get(f"/calls/{call.id}/detail")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["decisions"] == []
+    assert len(body["tasks"]) == 1
+
+
+def test_call_detail_no_transcript_skips_extraction() -> None:
+    """Sin transcript persistido no se llama al LLM; decisiones y tareas vacías."""
+    call = _call()
+    with (
+        patch("enigma.api.calls_db.get_call", return_value=call),
+        patch("enigma.api.list_vault_notes", return_value=[]),
+        patch("enigma.api.read_call_summary", return_value=None),
+        patch("enigma.api.load_transcript", return_value=None),
+        patch("enigma.api.extract_decisions_from_call") as mock_dec,
+        patch("enigma.api.extract_tasks_from_call") as mock_task,
+    ):
+        response = client.get(f"/calls/{call.id}/detail")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["decisions"] == []
+    assert body["tasks"] == []
+    mock_dec.assert_not_called()
+    mock_task.assert_not_called()
 
 
 # ── WebSocket /ws ────────────────────────────────────────────────────────────

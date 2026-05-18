@@ -38,11 +38,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from enigma import __version__
+from enigma.agent.decisions import extract_decisions_from_call
 from enigma.agent.rag import RagAnswer, RagError, answer_question
-from enigma.agent.summarizer import summarize_call
+from enigma.agent.summarizer import CallSummary, read_call_summary, summarize_call
+from enigma.agent.tasks_extractor import extract_tasks_from_call
 from enigma.config import settings
 from enigma.db import calls as calls_db
 from enigma.db.sqlite import get_connection
+from enigma.ingest.transcriber import load_transcript
 from enigma.pipeline import ingest_audio
 from enigma.realtime import CHANNELS, manager, recent_messages, store_chat
 from enigma.search import SearchResult, search_notes
@@ -179,6 +182,86 @@ def call_notes(call_id: UUID) -> list[CallNote]:
         for summary in list_vault_notes()
         if summary.call_id == call_id
     ]
+
+
+class CallTask(BaseModel):
+    """Una tarea pendiente mencionada en una llamada."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    statement: str
+    assignee: str | None
+
+
+class CallDetail(BaseModel):
+    """Vista de detalle de una llamada grabada: lo que la IA destiló de ella."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    call_id: UUID
+    title: str | None
+    status: str
+    summary: CallSummary | None
+    notes: list[CallNote]
+    decisions: list[str]
+    tasks: list[CallTask]
+
+
+@app.get("/calls/{call_id}/detail", response_model=CallDetail)
+def call_detail(call_id: UUID) -> CallDetail:
+    """Detalle de una llamada grabada: resumen IA + notas + decisiones + tareas.
+
+    El resumen se lee de la nota que generó la ingesta (`null` si aún no
+    existe). Las decisiones y las tareas se extraen on-demand del transcript
+    — son dos llamadas al LLM local, así que la respuesta puede tardar
+    ~10-30 s. Un fallo de extracción degrada a lista vacía: la vista nunca se
+    rompe por ello.
+
+    Raises:
+        HTTPException: 404 si la llamada no existe.
+    """
+    with get_connection() as conn:
+        call = calls_db.get_call(conn, call_id)
+    if call is None:
+        raise HTTPException(status_code=404, detail="No existe esa llamada.")
+
+    notes = [
+        CallNote(
+            note_id=summary.note_id,
+            title=summary.title,
+            status=summary.status,
+            tags=summary.tags,
+        )
+        for summary in list_vault_notes()
+        if summary.call_id == call_id
+    ]
+    summary = read_call_summary(call)
+
+    decisions: list[str] = []
+    tasks: list[CallTask] = []
+    transcript = load_transcript(call_id)
+    if transcript is not None:
+        try:
+            decisions = [d.statement for d in extract_decisions_from_call(call, transcript)]
+        except Exception:
+            _log.exception("Falló la extracción de decisiones de la llamada %s", call_id)
+        try:
+            tasks = [
+                CallTask(statement=t.statement, assignee=t.assignee)
+                for t in extract_tasks_from_call(call, transcript)
+            ]
+        except Exception:
+            _log.exception("Falló la extracción de tareas de la llamada %s", call_id)
+
+    return CallDetail(
+        call_id=call_id,
+        title=call.title,
+        status=call.status,
+        summary=summary,
+        notes=notes,
+        decisions=decisions,
+        tasks=tasks,
+    )
 
 
 def _process_upload(audio_path: Path, title: str) -> None:
