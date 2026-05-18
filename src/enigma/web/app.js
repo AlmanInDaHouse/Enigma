@@ -24,7 +24,21 @@ const state = {
     screenStream: null,
     micOn: true,
     camOn: true,
+    recording: false,
+    recorder: null,
+    audioCtx: null,
+    mixDest: null,
+    mixedSources: null,
+    recChunks: [],
   },
+};
+
+const CALL_STATUS = {
+  pending: { label: "en cola", cls: "work" },
+  transcribing: { label: "transcribiendo", cls: "work" },
+  extracting: { label: "extrayendo notas", cls: "work" },
+  done: { label: "listo", cls: "done" },
+  failed: { label: "error", cls: "fail" },
 };
 
 /* ── Constelación de fondo ───────────────────────────────────────────── */
@@ -122,6 +136,17 @@ function avatarHtml(name, cls) {
 function timeOf(iso) {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+let toastTimer = null;
+function toast(message) {
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.hidden = true;
+  }, 4200);
 }
 
 async function getJSON(url, options) {
@@ -394,6 +419,7 @@ function createPeer(peerId, isInitiator) {
   });
   pc.addEventListener("track", (event) => {
     entry.stream = event.streams[0];
+    if (state.call.recording) addToMix(entry.stream);
     syncTiles();
   });
   pc.addEventListener("connectionstatechange", () => {
@@ -472,6 +498,7 @@ async function joinCall() {
 }
 
 function leaveCall() {
+  if (state.call.recording) stopRecording();
   wsSend({ type: "call-leave" });
   for (const peerId of [...state.call.peers.keys()]) closePeer(peerId);
   for (const stream of [state.call.localStream, state.call.screenStream]) {
@@ -536,6 +563,113 @@ async function toggleScreen() {
   renderControls();
 }
 
+/* ── Grabación de la llamada ─────────────────────────────────────────── */
+
+function addToMix(stream) {
+  if (!stream || !state.call.mixDest || !state.call.mixedSources) return;
+  if (state.call.mixedSources.has(stream) || !stream.getAudioTracks().length) return;
+  state.call.audioCtx.createMediaStreamSource(stream).connect(state.call.mixDest);
+  state.call.mixedSources.add(stream);
+}
+
+function startRecording() {
+  if (!state.call.localStream) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  state.call.audioCtx = new Ctx();
+  state.call.mixDest = state.call.audioCtx.createMediaStreamDestination();
+  state.call.mixedSources = new Set();
+  addToMix(state.call.localStream);
+  for (const entry of state.call.peers.values()) addToMix(entry.stream);
+  state.call.recChunks = [];
+  let recorder;
+  try {
+    recorder = new MediaRecorder(state.call.mixDest.stream, { mimeType: "audio/webm" });
+  } catch (_) {
+    recorder = new MediaRecorder(state.call.mixDest.stream);
+  }
+  recorder.addEventListener("dataavailable", (event) => {
+    if (event.data && event.data.size) state.call.recChunks.push(event.data);
+  });
+  recorder.addEventListener("stop", uploadRecording);
+  recorder.start();
+  state.call.recorder = recorder;
+  state.call.recording = true;
+  renderControls();
+  toast("Grabando la llamada. Al parar, se convertirá en notas.");
+}
+
+function stopRecording() {
+  state.call.recording = false;
+  renderControls();
+  if (state.call.recorder && state.call.recorder.state !== "inactive") {
+    state.call.recorder.stop(); // dispara uploadRecording
+  }
+}
+
+function toggleRecording() {
+  if (state.call.recording) stopRecording();
+  else startRecording();
+}
+
+async function uploadRecording() {
+  const blob = new Blob(state.call.recChunks, { type: "audio/webm" });
+  state.call.recChunks = [];
+  if (state.call.audioCtx) {
+    state.call.audioCtx.close();
+    state.call.audioCtx = null;
+  }
+  state.call.recorder = null;
+  state.call.mixDest = null;
+  state.call.mixedSources = null;
+  if (!blob.size) return;
+  const title = `Llamada del equipo — ${new Date().toLocaleString("es-ES")}`;
+  toast("Subiendo la grabación a Enigma…");
+  try {
+    const res = await fetch(`/calls/upload?title=${encodeURIComponent(title)}`, {
+      method: "POST",
+      body: blob,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    toast("Grabación enviada. Enigma la está convirtiendo en notas.");
+    loadCalls();
+  } catch (err) {
+    toast(`No se pudo subir la grabación: ${err.message}`);
+  }
+}
+
+async function loadCalls() {
+  const box = document.getElementById("lobby-calls");
+  if (!box) return;
+  let calls;
+  try {
+    calls = await getJSON("/calls");
+  } catch (_) {
+    return;
+  }
+  if (!calls.length) {
+    box.innerHTML =
+      '<p class="nav-label">Llamadas</p>' +
+      '<p class="results-empty">Aún no se ha procesado ninguna llamada.</p>';
+    return;
+  }
+  box.innerHTML =
+    '<p class="nav-label">Llamadas procesadas</p>' +
+    calls
+      .map((call) => {
+        const st = CALL_STATUS[call.status] || { label: call.status, cls: "" };
+        const when = new Date(call.recorded_at).toLocaleString("es-ES");
+        const mins = (call.duration_seconds / 60).toFixed(1);
+        return `<div class="call-row">
+          <div class="call-row-main">
+            <div class="call-row-title">${escapeHtml(call.title || "Llamada")}</div>
+            <div class="call-row-meta">${escapeHtml(when)} · ${mins} min</div>
+          </div>
+          <span class="call-status ${st.cls}">${escapeHtml(st.label)}</span>
+        </div>`;
+      })
+      .join("");
+}
+
 /* ── Render de la vista de llamada ───────────────────────────────────── */
 
 function renderCallView() {
@@ -550,11 +684,13 @@ function renderCallView() {
       <button class="ctrl" id="ctrl-mic" title="Micrófono">🎙</button>
       <button class="ctrl" id="ctrl-cam" title="Cámara">🎥</button>
       <button class="ctrl" id="ctrl-screen" title="Compartir pantalla">🖥</button>
+      <button class="ctrl rec" id="ctrl-rec" title="Grabar la llamada">⏺</button>
       <button class="ctrl hangup" id="ctrl-leave" title="Colgar">✕</button>
     </div>`;
   document.getElementById("ctrl-mic").addEventListener("click", toggleMic);
   document.getElementById("ctrl-cam").addEventListener("click", toggleCam);
   document.getElementById("ctrl-screen").addEventListener("click", toggleScreen);
+  document.getElementById("ctrl-rec").addEventListener("click", toggleRecording);
   document.getElementById("ctrl-leave").addEventListener("click", leaveCall);
   renderControls();
   syncTiles();
@@ -571,8 +707,10 @@ function renderLobby(error) {
       <h3>Sala de llamada</h3>
       <p>${error ? escapeHtml(error) : note}</p>
       <button class="btn-join" id="btn-join">Unirse a la llamada</button>
+      <div class="lobby-calls" id="lobby-calls"></div>
     </div>`;
   document.getElementById("btn-join").addEventListener("click", joinCall);
+  loadCalls();
 }
 
 function renderControls() {
@@ -582,6 +720,8 @@ function renderControls() {
   if (mic) mic.classList.toggle("off", !state.call.micOn);
   if (cam) cam.classList.toggle("off", !state.call.camOn);
   if (screen) screen.classList.toggle("on", !!state.call.screenStream);
+  const rec = document.getElementById("ctrl-rec");
+  if (rec) rec.classList.toggle("on", state.call.recording);
 }
 
 /* Crea/actualiza un tile de vídeo por participante sin recrear los <video>. */
@@ -757,3 +897,8 @@ setupGate();
 setupComposer();
 setupAsk();
 setupSearch();
+
+// Refresca el estado de las llamadas mientras se mira el lobby de la llamada.
+setInterval(() => {
+  if (state.view === "call" && !state.call.joined) loadCalls();
+}, 6000);

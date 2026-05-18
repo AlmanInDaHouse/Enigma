@@ -695,12 +695,90 @@ body::before {
 .ctrl.hangup { background: var(--bad); border-color: var(--bad); color: #fff; width: 62px; }
 .ctrl.hangup:hover { background: #e08a7e; }
 
+/* ── Toast ────────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  background: var(--ink-4);
+  border: 1px solid var(--line-bright);
+  color: var(--text);
+  font-size: 13.5px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.toast[hidden] { display: none; }
+
+/* ── Grabación + lista de llamadas ────────────────────────────────────── */
+
+.ctrl.rec.on { background: var(--bad); border-color: var(--bad); color: #fff; }
+.ctrl.rec.on::after {
+  content: "";
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid var(--bad);
+  animation: ring 1.4s ease-out infinite;
+}
+.ctrl { position: relative; }
+
+.lobby-calls {
+  margin-top: 30px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lobby-calls .nav-label { margin: 0 0 4px; }
+
+.call-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 15px;
+}
+.call-row-main { flex: 1; min-width: 0; }
+.call-row-title { font-size: 14px; font-weight: 600; }
+.call-row-meta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+.call-status {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.call-status.done { color: var(--teal); border-color: rgba(116, 196, 186, 0.4); }
+.call-status.work { color: var(--amber); border-color: rgba(236, 180, 85, 0.4); }
+.call-status.fail { color: var(--bad); border-color: rgba(217, 122, 110, 0.4); }
+
 /* ── Animaciones ──────────────────────────────────────────────────────── */
 
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes pulse { 0%, 100% { transform: scale(0.7); opacity: 0.4; } 50% { transform: scale(1); opacity: 1; } }
 @keyframes shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes ring {
+  from { transform: scale(0.9); opacity: 0.7; }
+  to { transform: scale(1.5); opacity: 0; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

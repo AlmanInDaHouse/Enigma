@@ -268,7 +268,7 @@ La web es una single-page servida por el **mismo FastAPI** de `api.py` — sin t
 - **Llamadas peer-to-peer (W2):** el audio/vídeo viaja **directo entre navegadores** vía WebRTC en malla (cada par ↔ cada par — viable para ≤6). El servidor solo **relaya señalización** (SDP + ICE), nunca toca los medios. STUN configurable (sin TURN por defecto: llamadas entre redes con NAT estricto pueden fallar — limitación documentada). Nada de SFU/LiveKit (infra pesada).
 - **El bucle (W3):** una llamada se graba en el navegador (`MediaRecorder`); al colgar se sube y entra en `ingest_audio` como job en segundo plano → notas → consultable. Reutiliza el pipeline entero sin tocarlo.
 - **Sin login:** identidad ligera (un nombre en `localStorage`). Auth real = backlog.
-- Fases: W1 chat **(hecho)** · W2 llamadas WebRTC **(hecho)** · W3 grabar→pipeline · W4 consulta integrada. Ver `TASKS.md` Fase 6.
+- Fases: W1 chat **(hecho)** · W2 llamadas WebRTC **(hecho)** · W3 grabar→pipeline **(hecho)** · W4 consulta integrada. Ver `TASKS.md` Fase 6.
 
 ## 5. Modelo de despliegue
 

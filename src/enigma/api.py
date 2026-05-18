@@ -9,16 +9,29 @@ navegador además de la CLI:
 - `GET  /stats`    → métricas del sistema (corpus, actividad, salud).
 - `GET  /search`   → búsqueda semántica top-k de notas.
 - `GET  /channels` → canales de chat disponibles.
+- `GET  /calls`    → llamadas registradas y su estado de procesado.
 - `POST /ask`      → pregunta en lenguaje natural → respuesta RAG con citas.
-- `WS   /ws`       → chat en vivo + presencia del equipo (Fase 6 — W1).
+- `POST /calls/upload` → sube la grabación de una llamada → pipeline.
+- `WS   /ws`       → chat + presencia + señalización WebRTC (Fase 6).
 
 La app se sirve con `enigma serve` (uvicorn). Los modelos de respuesta ya son
 Pydantic, así que FastAPI los serializa a JSON sin trabajo extra.
 """
 
+import logging
+from datetime import datetime
 from pathlib import Path
+from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -26,10 +39,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from enigma import __version__
 from enigma.agent.rag import RagAnswer, RagError, answer_question
 from enigma.config import settings
+from enigma.db import calls as calls_db
+from enigma.db.sqlite import get_connection
+from enigma.pipeline import ingest_audio
 from enigma.realtime import CHANNELS, manager, recent_messages, store_chat
 from enigma.search import SearchResult, search_notes
 from enigma.stats import EnigmaStats, gather_stats
 
+_log = logging.getLogger(__name__)
 _WEB_DIR = Path(__file__).parent / "web"
 
 app = FastAPI(
@@ -99,6 +116,66 @@ def search(
 def channels() -> list[str]:
     """Canales de chat disponibles para el equipo."""
     return list(CHANNELS)
+
+
+class CallCard(BaseModel):
+    """Vista ligera de una llamada para el listado de la app."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    title: str | None
+    status: str
+    recorded_at: datetime
+    duration_seconds: float
+
+
+@app.get("/calls", response_model=list[CallCard])
+def calls() -> list[CallCard]:
+    """Últimas llamadas registradas y su estado de procesado."""
+    with get_connection() as conn:
+        rows = calls_db.list_calls(conn, limit=20)
+    return [
+        CallCard(
+            id=call.id,
+            title=call.title,
+            status=call.status,
+            recorded_at=call.recorded_at,
+            duration_seconds=call.duration_seconds,
+        )
+        for call in rows
+    ]
+
+
+def _process_upload(audio_path: Path, title: str) -> None:
+    """Job en background: mete la grabación subida en el pipeline de Enigma."""
+    try:
+        ingest_audio(audio_path, title=title)
+    except Exception:
+        _log.exception("Falló el procesado de la grabación %s", audio_path)
+
+
+@app.post("/calls/upload")
+async def upload_call(
+    request: Request,
+    background: BackgroundTasks,
+    title: str = Query("Llamada del equipo", description="Título de la llamada."),
+) -> dict[str, str]:
+    """Recibe la grabación de una llamada y la procesa en segundo plano.
+
+    El cuerpo de la petición es el audio crudo (p.ej. `audio/webm`). La
+    ingesta (transcripción + extracción) es lenta, así que se lanza como job
+    en background y la respuesta vuelve de inmediato.
+    """
+    audio = await request.body()
+    if not audio:
+        raise HTTPException(status_code=422, detail="La grabación está vacía.")
+    uploads = settings.enigma_data_path / "uploads"
+    uploads.mkdir(parents=True, exist_ok=True)
+    audio_path = uploads / f"{uuid4().hex}.webm"
+    audio_path.write_bytes(audio)
+    background.add_task(_process_upload, audio_path, title)
+    return {"status": "processing", "title": title}
 
 
 async def _handle_hello(websocket: WebSocket, data: dict[str, object]) -> tuple[str, str]:

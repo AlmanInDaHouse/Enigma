@@ -17,6 +17,7 @@ from enigma.agent.rag import Citation, RagAnswer, RagError
 from enigma.api import app
 from enigma.cli import app as cli_app
 from enigma.config import settings
+from enigma.models.call import Call
 from enigma.search import SearchResult
 from enigma.stats import ActivityStats, CorpusStats, EnigmaStats, HealthProbe
 
@@ -195,6 +196,59 @@ def test_channels_lists_fixed_channels() -> None:
     response = client.get("/channels")
     assert response.status_code == 200
     assert "general" in response.json()
+
+
+# ── GET /calls ───────────────────────────────────────────────────────────────
+
+
+def _call(title: str = "Reunión", status: str = "done") -> Call:
+    now = datetime.now(tz=UTC)
+    return Call(
+        id=uuid4(),
+        content_hash=uuid4().hex + uuid4().hex,
+        title=title,
+        audio_path=Path("/tmp/a.webm"),
+        duration_seconds=900.0,
+        language="es",
+        recorded_at=now,
+        ingested_at=now,
+        status=status,  # type: ignore[arg-type]
+    )
+
+
+def test_calls_lists_recent() -> None:
+    with patch("enigma.api.calls_db.list_calls", return_value=[_call("Daily", "transcribing")]):
+        response = client.get("/calls")
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["title"] == "Daily"
+    assert body[0]["status"] == "transcribing"
+
+
+# ── POST /calls/upload ───────────────────────────────────────────────────────
+
+
+def test_upload_call_schedules_ingest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
+    with patch("enigma.api.ingest_audio") as mock_ingest:
+        response = client.post(
+            "/calls/upload",
+            params={"title": "Reunión semanal"},
+            content=b"webm-fake-audio-bytes",
+        )
+    assert response.status_code == 200
+    assert response.json()["status"] == "processing"
+    # El TestClient ejecuta las background tasks tras la respuesta.
+    mock_ingest.assert_called_once()
+    assert mock_ingest.call_args.kwargs["title"] == "Reunión semanal"
+    saved = mock_ingest.call_args.args[0]
+    assert saved.exists()
+
+
+def test_upload_call_rejects_empty_body(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
+    response = client.post("/calls/upload", params={"title": "Vacía"}, content=b"")
+    assert response.status_code == 422
 
 
 # ── WebSocket /ws ────────────────────────────────────────────────────────────
