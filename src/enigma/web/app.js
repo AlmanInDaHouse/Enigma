@@ -1,6 +1,6 @@
 "use strict";
 
-/* Enigma — app del equipo. Chat en vivo (WebSocket) + consulta a la memoria. */
+/* Enigma — app del equipo. Chat + llamadas WebRTC + consulta a la memoria. */
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const NAME_KEY = "enigma.name";
@@ -13,6 +13,18 @@ const state = {
   messages: [],
   ws: null,
   statsLoaded: false,
+  call: {
+    joined: false,
+    myPeerId: null,
+    iceServers: [],
+    peers: new Map(), // peerId -> { pc, stream }
+    names: new Map(), // peerId -> name
+    roster: new Set(), // peerIds (otros) en la llamada
+    localStream: null,
+    screenStream: null,
+    micOn: true,
+    camOn: true,
+  },
 };
 
 /* ── Constelación de fondo ───────────────────────────────────────────── */
@@ -102,8 +114,7 @@ function initials(name) {
 }
 
 function avatarHtml(name, cls) {
-  const color = avatarColor(name);
-  return `<span class="avatar ${cls || ""}" style="background:${color}">${escapeHtml(
+  return `<span class="avatar ${cls || ""}" style="background:${avatarColor(name)}">${escapeHtml(
     initials(name)
   )}</span>`;
 }
@@ -196,27 +207,26 @@ async function loadChannels() {
 
 function setChannel(channel) {
   state.channel = channel;
-  setView("chat");
   document.getElementById("channel-name").textContent = channel;
   document.getElementById("composer-input").placeholder = `Escribe en #${channel}…`;
-  document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.channel === channel);
-  });
+  setView("chat");
   renderMessages();
 }
 
 function setView(view) {
   state.view = view;
-  document.getElementById("view-chat").hidden = view !== "chat";
-  document.getElementById("view-enigma").hidden = view !== "enigma";
-  if (view === "enigma") {
-    document.querySelectorAll(".nav-item").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.view === "enigma");
-    });
-    if (!state.statsLoaded) {
-      state.statsLoaded = true;
-      loadStats();
-    }
+  for (const v of ["chat", "call", "enigma"]) {
+    document.getElementById(`view-${v}`).hidden = view !== v;
+  }
+  document.querySelectorAll(".nav-item").forEach((btn) => {
+    const isChannel = view === "chat" && btn.dataset.channel === state.channel;
+    const isView = btn.dataset.view === view;
+    btn.classList.toggle("active", isChannel || isView);
+  });
+  if (view === "call") renderCallView();
+  if (view === "enigma" && !state.statsLoaded) {
+    state.statsLoaded = true;
+    loadStats();
   }
 }
 
@@ -291,6 +301,44 @@ function setConn(live) {
   dot.classList.toggle("lost", !live);
 }
 
+function handleWsMessage(data) {
+  switch (data.type) {
+    case "welcome":
+      state.call.myPeerId = data.peer_id;
+      state.call.iceServers = data.ice_servers || [];
+      break;
+    case "history":
+      state.messages = data.messages;
+      renderMessages();
+      break;
+    case "chat":
+      state.messages.push(data.message);
+      if (data.message.channel === state.channel && state.view === "chat") renderMessages();
+      break;
+    case "presence":
+      renderPresence(data.users);
+      break;
+    case "call-roster":
+      onCallRoster(data.peers);
+      break;
+    case "call-joined":
+      state.call.names.set(data.peer_id, data.name);
+      if (data.peer_id !== state.call.myPeerId) state.call.roster.add(data.peer_id);
+      updateCallBadge();
+      break;
+    case "call-left":
+      state.call.roster.delete(data.peer_id);
+      closePeer(data.peer_id);
+      updateCallBadge();
+      break;
+    case "signal":
+      handleSignal(data.from, data.data);
+      break;
+    default:
+      break;
+  }
+}
+
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const ws = new WebSocket(`${proto}//${location.host}/ws`);
@@ -300,25 +348,286 @@ function connect() {
     setConn(true);
     ws.send(JSON.stringify({ type: "hello", name: state.me }));
   });
-
-  ws.addEventListener("message", (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === "history") {
-      state.messages = data.messages;
-      renderMessages();
-    } else if (data.type === "chat") {
-      state.messages.push(data.message);
-      if (data.message.channel === state.channel && state.view === "chat") renderMessages();
-    } else if (data.type === "presence") {
-      renderPresence(data.users);
-    }
-  });
-
+  ws.addEventListener("message", (event) => handleWsMessage(JSON.parse(event.data)));
   ws.addEventListener("close", () => {
     setConn(false);
     setTimeout(connect, 2500);
   });
   ws.addEventListener("error", () => ws.close());
+}
+
+function wsSend(payload) {
+  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+    state.ws.send(JSON.stringify(payload));
+  }
+}
+
+/* ── Llamadas (WebRTC) ───────────────────────────────────────────────── */
+
+function updateCallBadge() {
+  const count = state.call.roster.size + (state.call.joined ? 1 : 0);
+  const badge = document.getElementById("call-count");
+  badge.textContent = count;
+  badge.hidden = count === 0;
+  document
+    .querySelector('.nav-item[data-view="call"]')
+    .classList.toggle("in-call", state.call.joined);
+}
+
+function sendSignal(toPeerId, data) {
+  wsSend({ type: "signal", to: toPeerId, data });
+}
+
+function createPeer(peerId, isInitiator) {
+  if (state.call.peers.has(peerId)) return state.call.peers.get(peerId);
+  const pc = new RTCPeerConnection({
+    iceServers: state.call.iceServers.map((url) => ({ urls: url })),
+  });
+  const entry = { pc, stream: null };
+  state.call.peers.set(peerId, entry);
+
+  for (const track of state.call.localStream.getTracks()) {
+    pc.addTrack(track, state.call.localStream);
+  }
+  pc.addEventListener("icecandidate", (event) => {
+    if (event.candidate) sendSignal(peerId, { candidate: event.candidate });
+  });
+  pc.addEventListener("track", (event) => {
+    entry.stream = event.streams[0];
+    syncTiles();
+  });
+  pc.addEventListener("connectionstatechange", () => {
+    if (pc.connectionState === "failed" || pc.connectionState === "closed") closePeer(peerId);
+  });
+
+  if (isInitiator) {
+    pc.createOffer()
+      .then((offer) => pc.setLocalDescription(offer))
+      .then(() => sendSignal(peerId, { desc: pc.localDescription }))
+      .catch(() => closePeer(peerId));
+  }
+  syncTiles();
+  return entry;
+}
+
+async function handleSignal(from, data) {
+  if (!state.call.joined) return;
+  let entry = state.call.peers.get(from);
+  if (!entry) entry = createPeer(from, false);
+  const pc = entry.pc;
+  try {
+    if (data.desc) {
+      await pc.setRemoteDescription(data.desc);
+      if (data.desc.type === "offer") {
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        sendSignal(from, { desc: pc.localDescription });
+      }
+    } else if (data.candidate) {
+      await pc.addIceCandidate(data.candidate);
+    }
+  } catch (_) {
+    /* señal fuera de orden o par ya cerrado */
+  }
+}
+
+function onCallRoster(peers) {
+  for (const peer of peers) {
+    state.call.names.set(peer.peer_id, peer.name);
+    state.call.roster.add(peer.peer_id);
+    createPeer(peer.peer_id, true); // somos los recién llegados: ofrecemos
+  }
+  updateCallBadge();
+}
+
+function closePeer(peerId) {
+  const entry = state.call.peers.get(peerId);
+  if (entry) {
+    try {
+      entry.pc.close();
+    } catch (_) {
+      /* ya cerrado */
+    }
+    state.call.peers.delete(peerId);
+  }
+  syncTiles();
+}
+
+async function joinCall() {
+  try {
+    state.call.localStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
+  } catch (err) {
+    renderLobby(`No se pudo acceder a la cámara o el micrófono: ${err.message}`);
+    return;
+  }
+  state.call.joined = true;
+  state.call.micOn = true;
+  state.call.camOn = true;
+  wsSend({ type: "call-join" });
+  updateCallBadge();
+  renderCallView();
+}
+
+function leaveCall() {
+  wsSend({ type: "call-leave" });
+  for (const peerId of [...state.call.peers.keys()]) closePeer(peerId);
+  for (const stream of [state.call.localStream, state.call.screenStream]) {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+  }
+  state.call.localStream = null;
+  state.call.screenStream = null;
+  state.call.joined = false;
+  updateCallBadge();
+  renderCallView();
+}
+
+function replaceVideoTrack(track) {
+  for (const { pc } of state.call.peers.values()) {
+    const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
+    if (sender) sender.replaceTrack(track);
+  }
+  const localVideo = document.querySelector("#tile-local video");
+  if (localVideo) {
+    localVideo.srcObject = new MediaStream([track, ...state.call.localStream.getAudioTracks()]);
+  }
+}
+
+function toggleMic() {
+  const track = state.call.localStream && state.call.localStream.getAudioTracks()[0];
+  if (!track) return;
+  state.call.micOn = !state.call.micOn;
+  track.enabled = state.call.micOn;
+  renderControls();
+  syncTiles();
+}
+
+function toggleCam() {
+  const track = state.call.localStream && state.call.localStream.getVideoTracks()[0];
+  if (!track || state.call.screenStream) return;
+  state.call.camOn = !state.call.camOn;
+  track.enabled = state.call.camOn;
+  renderControls();
+  syncTiles();
+}
+
+async function toggleScreen() {
+  if (state.call.screenStream) {
+    state.call.screenStream.getTracks().forEach((t) => t.stop());
+    state.call.screenStream = null;
+    replaceVideoTrack(state.call.localStream.getVideoTracks()[0]);
+    renderControls();
+    return;
+  }
+  let display;
+  try {
+    display = await navigator.mediaDevices.getDisplayMedia({ video: true });
+  } catch (_) {
+    return; // el usuario canceló
+  }
+  state.call.screenStream = display;
+  const screenTrack = display.getVideoTracks()[0];
+  screenTrack.addEventListener("ended", () => {
+    if (state.call.screenStream) toggleScreen();
+  });
+  replaceVideoTrack(screenTrack);
+  renderControls();
+}
+
+/* ── Render de la vista de llamada ───────────────────────────────────── */
+
+function renderCallView() {
+  const stage = document.getElementById("call-stage");
+  if (!state.call.joined) {
+    renderLobby();
+    return;
+  }
+  stage.innerHTML = `
+    <div class="call-grid" id="call-grid"></div>
+    <div class="call-controls">
+      <button class="ctrl" id="ctrl-mic" title="Micrófono">🎙</button>
+      <button class="ctrl" id="ctrl-cam" title="Cámara">🎥</button>
+      <button class="ctrl" id="ctrl-screen" title="Compartir pantalla">🖥</button>
+      <button class="ctrl hangup" id="ctrl-leave" title="Colgar">✕</button>
+    </div>`;
+  document.getElementById("ctrl-mic").addEventListener("click", toggleMic);
+  document.getElementById("ctrl-cam").addEventListener("click", toggleCam);
+  document.getElementById("ctrl-screen").addEventListener("click", toggleScreen);
+  document.getElementById("ctrl-leave").addEventListener("click", leaveCall);
+  renderControls();
+  syncTiles();
+}
+
+function renderLobby(error) {
+  const others = state.call.roster.size;
+  const note = others
+    ? `${others} persona(s) ya en la llamada.`
+    : "Nadie en la llamada todavía. Sé quien la empiece.";
+  document.getElementById("call-stage").innerHTML = `
+    <div class="call-lobby">
+      <div class="lobby-orb"></div>
+      <h3>Sala de llamada</h3>
+      <p>${error ? escapeHtml(error) : note}</p>
+      <button class="btn-join" id="btn-join">Unirse a la llamada</button>
+    </div>`;
+  document.getElementById("btn-join").addEventListener("click", joinCall);
+}
+
+function renderControls() {
+  const mic = document.getElementById("ctrl-mic");
+  const cam = document.getElementById("ctrl-cam");
+  const screen = document.getElementById("ctrl-screen");
+  if (mic) mic.classList.toggle("off", !state.call.micOn);
+  if (cam) cam.classList.toggle("off", !state.call.camOn);
+  if (screen) screen.classList.toggle("on", !!state.call.screenStream);
+}
+
+/* Crea/actualiza un tile de vídeo por participante sin recrear los <video>. */
+function syncTiles() {
+  const grid = document.getElementById("call-grid");
+  if (!grid || !state.call.joined) return;
+
+  const wanted = ["local", ...state.call.peers.keys()];
+  for (const id of wanted) {
+    if (!document.getElementById(`tile-${id}`)) {
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      tile.id = `tile-${id}`;
+      const name = id === "local" ? state.me : state.call.names.get(id) || "…";
+      tile.innerHTML = `
+        <video autoplay playsinline${id === "local" ? " muted" : ""}></video>
+        <div class="tile-fallback">${avatarHtml(name)}</div>
+        <span class="tile-name"></span>`;
+      grid.appendChild(tile);
+    }
+  }
+  for (const tile of [...grid.children]) {
+    const id = tile.id.replace("tile-", "");
+    if (!wanted.includes(id)) tile.remove();
+  }
+
+  // Tile local.
+  const localTile = document.getElementById("tile-local");
+  if (localTile) {
+    const video = localTile.querySelector("video");
+    if (!state.call.screenStream && video.srcObject !== state.call.localStream) {
+      video.srcObject = state.call.localStream;
+    }
+    localTile.classList.toggle("cam-off", !state.call.camOn && !state.call.screenStream);
+    localTile.querySelector(".tile-name").innerHTML =
+      escapeHtml(`${state.me} · tú`) + (state.call.micOn ? "" : ' <span class="mic-off">silencio</span>');
+  }
+
+  // Tiles remotos.
+  for (const [peerId, entry] of state.call.peers) {
+    const tile = document.getElementById(`tile-${peerId}`);
+    if (!tile) continue;
+    const video = tile.querySelector("video");
+    if (entry.stream && video.srcObject !== entry.stream) video.srcObject = entry.stream;
+    tile.querySelector(".tile-name").textContent = state.call.names.get(peerId) || "Invitado";
+  }
 }
 
 /* ── Enigma: estadísticas ────────────────────────────────────────────── */

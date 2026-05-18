@@ -57,6 +57,15 @@
     <nav class="nav">
       <p class="nav-label">Canales</p>
       <ul class="nav-list" id="channel-list"></ul>
+      <p class="nav-label">Llamada</p>
+      <ul class="nav-list">
+        <li>
+          <button class="nav-item" data-view="call">
+            <span class="nav-glyph call-glyph">●</span> Sala de llamada
+            <span class="call-count" id="call-count" hidden></span>
+          </button>
+        </li>
+      </ul>
       <p class="nav-label">Enigma</p>
       <ul class="nav-list">
         <li>
@@ -87,6 +96,15 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </button>
       </form>
+    </section>
+
+    <!-- Vista de llamada ──────────────────────────────────────────── -->
+    <section class="view call-view" id="view-call" hidden>
+      <header class="channel-head">
+        <h2><span class="hash call-glyph">●</span>Llamada del equipo</h2>
+        <p>Vídeo, audio y pantalla compartida, de navegador a navegador.</p>
+      </header>
+      <div class="call-stage" id="call-stage"></div>
     </section>
 
     <!-- Vista Enigma (consultar) ──────────────────────────────────── -->

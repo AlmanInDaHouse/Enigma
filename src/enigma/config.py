@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     api_port: int = 8077
     api_log_level: str = "info"
 
+    # ── Llamadas WebRTC (Fase 6 — W2) ───────────────────────────────────
+    # Servidores ICE para descubrir rutas entre navegadores. STUN basta en
+    # red local; entre redes con NAT estricto haría falta un TURN. Vaciar la
+    # lista deja las llamadas 100% locales (solo same-LAN/localhost).
+    webrtc_ice_servers: list[str] = ["stun:stun.l.google.com:19302"]
+
     # ── Extractor (LLM → notas atómicas) ────────────────────────────────
     extract_chunk_tokens: int = 1500
     extract_chunk_overlap: int = 200

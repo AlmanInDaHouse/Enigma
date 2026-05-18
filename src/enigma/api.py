@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from enigma import __version__
 from enigma.agent.rag import RagAnswer, RagError, answer_question
+from enigma.config import settings
 from enigma.realtime import CHANNELS, manager, recent_messages, store_chat
 from enigma.search import SearchResult, search_notes
 from enigma.stats import EnigmaStats, gather_stats
@@ -100,38 +101,55 @@ def channels() -> list[str]:
     return list(CHANNELS)
 
 
+async def _handle_hello(websocket: WebSocket, data: dict[str, object]) -> tuple[str, str]:
+    """Procesa `hello`: registra al cliente y le envía welcome + historial."""
+    name = (str(data.get("name") or "").strip()[:60]) or "anónimo"
+    peer_id = await manager.register(websocket, name)
+    await websocket.send_json(
+        {"type": "welcome", "peer_id": peer_id, "ice_servers": settings.webrtc_ice_servers},
+    )
+    history = [m.model_dump(mode="json") for m in recent_messages()]
+    await websocket.send_json({"type": "history", "messages": history})
+    return name, peer_id
+
+
+async def _handle_chat(name: str, data: dict[str, object]) -> None:
+    """Procesa `chat`: persiste el mensaje y lo difunde."""
+    message = store_chat(name, str(data.get("channel", "")), str(data.get("body", "")))
+    if message is not None:
+        await manager.broadcast(
+            {"type": "chat", "message": message.model_dump(mode="json")},
+        )
+
+
 @app.websocket("/ws")
 async def chat_socket(websocket: WebSocket) -> None:
-    """Canal en vivo del equipo: chat + presencia (Fase 6 — W1).
+    """Canal en vivo del equipo: chat, presencia y señalización WebRTC (Fase 6).
 
     Protocolo (JSON por mensaje):
-    - cliente → `{"type": "hello", "name": ...}` se presenta.
-    - cliente → `{"type": "chat", "channel": ..., "body": ...}` envía mensaje.
-    - servidor → `{"type": "presence", "users": [...]}` al conectar/desconectar.
-    - servidor → `{"type": "history", "messages": [...]}` tras `hello`.
-    - servidor → `{"type": "chat", "message": {...}}` al difundir un mensaje.
+    - cliente → `hello` se presenta · `chat` envía mensaje.
+    - cliente → `call-join` / `call-leave` entra/sale de la llamada.
+    - cliente → `signal` `{to, data}` relaya señalización WebRTC a un par.
+    - servidor → `welcome` `{peer_id, ice_servers}` · `presence` · `history`
+      · `chat` · `call-roster` · `call-joined` · `call-left` · `signal`.
     """
     await websocket.accept()
     name: str | None = None
+    peer_id: str | None = None
     try:
         while True:
             data = await websocket.receive_json()
             kind = data.get("type")
             if kind == "hello":
-                name = (str(data.get("name") or "").strip()[:60]) or "anónimo"
-                await manager.register(websocket, name)
-                history = [m.model_dump(mode="json") for m in recent_messages()]
-                await websocket.send_json({"type": "history", "messages": history})
+                name, peer_id = await _handle_hello(websocket, data)
             elif kind == "chat" and name is not None:
-                message = store_chat(
-                    name,
-                    str(data.get("channel", "")),
-                    str(data.get("body", "")),
-                )
-                if message is not None:
-                    await manager.broadcast(
-                        {"type": "chat", "message": message.model_dump(mode="json")},
-                    )
+                await _handle_chat(name, data)
+            elif kind == "call-join" and peer_id is not None:
+                await manager.join_call(websocket)
+            elif kind == "call-leave" and peer_id is not None:
+                await manager.leave_call(websocket)
+            elif kind == "signal" and peer_id is not None:
+                await manager.relay_signal(websocket, str(data.get("to", "")), data.get("data"))
     except WebSocketDisconnect:
         pass
     finally:

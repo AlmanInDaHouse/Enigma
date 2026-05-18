@@ -203,8 +203,9 @@
 - [x] **T-601 (W1)** Chat en vivo del equipo
   - *Aceptación:* mensajes en tiempo real entre varios clientes, persistidos y con historial
   - **Nota:** shell de app web (barra lateral, identidad, canales) + chat por WebSocket. `models/message.py`, tabla `messages` en SQLite, `db/messages.py`, hub `realtime.py` (`ConnectionManager` — presencia + difusión), endpoint `WS /ws` y `GET /channels` en `api.py`. Canales fijos (`general`/`producto`/`random`). Sin login: cada uno elige un nombre (localStorage). El panel "Consultar" (RAG + búsqueda + stats) queda integrado en la app. Frontend reescrito como shell; tema visual reutilizado del frontend previo.
-- [ ] **T-602 (W2)** Llamadas WebRTC en vivo
+- [x] **T-602 (W2)** Llamadas WebRTC en vivo
   - *Aceptación:* vídeo/audio entre el equipo + compartir pantalla; señalización sobre `/ws`
+  - **Nota:** llamada peer-to-peer en malla (cada par ↔ cada par, viable ≤6). El hub (`realtime.py`) gana `peer_id` por conexión, estado `in_call`, roster de llamada y `relay_signal` (relay de SDP/ICE por `peer_id`); `/ws` añade `call-join`/`call-leave`/`signal` y un `welcome` que entrega `peer_id` + `ice_servers`. Nuevo setting `webrtc_ice_servers` (STUN por defecto; sin TURN — llamadas entre redes con NAT estricto pueden fallar, documentado). Frontend: vista de llamada con malla `RTCPeerConnection` (el recién llegado ofrece; los presentes responden — sin *glare*), rejilla de vídeo, controles mic/cámara/compartir pantalla (`getDisplayMedia` + `replaceTrack`) y colgar. La señalización está cubierta por tests (`relay_signal`, roster, roundtrip `/ws` de 2 clientes); la capa de medios WebRTC se verifica manualmente (dos pestañas/equipos).
 - [ ] **T-603 (W3)** Grabar la llamada → pipeline
   - *Aceptación:* al colgar, la grabación entra en `ingest_audio` (job en background) y se convierte en notas
 - [ ] **T-604 (W4)** Consulta integrada y pulido
@@ -237,4 +238,4 @@ Actualizar manualmente al cierre de cada fase:
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
-| 6 | 4 | 1 | 25% | Ampliación post-MVP (comunicación). W1 chat en vivo (WebSocket) hecho. Pendiente: W2 llamadas WebRTC, W3 grabar→pipeline, W4 consulta integrada. Ver `PLAN.md §4.13`. |
+| 6 | 4 | 2 | 50% | Ampliación post-MVP (comunicación). W1 chat + W2 llamadas WebRTC (vídeo/audio/pantalla en malla) hechos. Pendiente: W3 grabar→pipeline, W4 consulta integrada. Ver `PLAN.md §4.13`. |

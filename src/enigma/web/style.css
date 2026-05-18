@@ -563,11 +563,144 @@ body::before {
   flex-shrink: 0;
 }
 
+/* ── Llamada (WebRTC) ─────────────────────────────────────────────────── */
+
+.call-glyph { color: var(--text-faint); }
+.nav-item.in-call .call-glyph,
+.channel-head .call-glyph.live { color: var(--teal); }
+.nav-item.in-call .call-glyph { animation: blink 1.6s ease-in-out infinite; }
+
+.call-count {
+  margin-left: auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  background: var(--teal);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-weight: 600;
+}
+
+.call-stage { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.call-lobby {
+  margin: auto;
+  text-align: center;
+  max-width: 380px;
+  padding: 40px;
+}
+.call-lobby .lobby-orb {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, var(--teal), #2c5c57);
+  box-shadow: 0 0 32px rgba(116, 196, 186, 0.4);
+}
+.call-lobby h3 { font-family: "Fraunces", serif; font-weight: 500; font-size: 1.5rem; }
+.call-lobby p { color: var(--text-dim); font-size: 14px; margin: 8px 0 22px; }
+
+.btn-join,
+.btn-leave {
+  border: none;
+  cursor: pointer;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-weight: 600;
+  font-size: 14.5px;
+  border-radius: 10px;
+  padding: 13px 26px;
+  transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+}
+.btn-join { background: var(--teal); color: var(--ink); }
+.btn-join:hover { box-shadow: 0 6px 24px rgba(116, 196, 186, 0.35); }
+.btn-leave { background: var(--bad); color: #fff; }
+.btn-join:active, .btn-leave:active { transform: translateY(1px); }
+
+.call-grid {
+  flex: 1;
+  display: grid;
+  gap: 12px;
+  padding: 20px 34px;
+  overflow-y: auto;
+  align-content: center;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #07080b;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  overflow: hidden;
+}
+.tile video { width: 100%; height: 100%; object-fit: cover; background: #07080b; }
+.tile.cam-off video { opacity: 0; }
+
+.tile-fallback {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.tile.cam-off .tile-fallback { display: flex; }
+.tile-fallback .avatar { width: 64px; height: 64px; font-size: 24px; }
+
+.tile-name {
+  position: absolute;
+  left: 12px;
+  bottom: 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: rgba(8, 9, 12, 0.74);
+  padding: 4px 11px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.tile-name .mic-off {
+  color: var(--bad);
+  font-size: 11px;
+}
+
+.call-controls {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.ctrl {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--ink-3);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  transition: background 0.18s, border-color 0.18s, transform 0.12s;
+}
+.ctrl:hover { border-color: var(--line-bright); background: var(--ink-4); }
+.ctrl:active { transform: scale(0.93); }
+.ctrl.off { background: var(--bad); border-color: var(--bad); color: #fff; }
+.ctrl.on { background: var(--teal); border-color: var(--teal); color: var(--ink); }
+.ctrl.hangup { background: var(--bad); border-color: var(--bad); color: #fff; width: 62px; }
+.ctrl.hangup:hover { background: #e08a7e; }
+
 /* ── Animaciones ──────────────────────────────────────────────────────── */
 
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes pulse { 0%, 100% { transform: scale(0.7); opacity: 0.4; } 50% { transform: scale(1); opacity: 1; } }
 @keyframes shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

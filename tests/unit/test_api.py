@@ -200,22 +200,54 @@ def test_channels_lists_fixed_channels() -> None:
 # ── WebSocket /ws ────────────────────────────────────────────────────────────
 
 
-def test_ws_hello_returns_presence_and_history(
+def test_ws_hello_returns_welcome_presence_history(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
     with client.websocket_connect("/ws") as ws:
         ws.send_json({"type": "hello", "name": "Ana"})
-        received = {ws.receive_json()["type"], ws.receive_json()["type"]}
-    assert received == {"presence", "history"}
+        msgs = [ws.receive_json() for _ in range(3)]
+    by_type = {m["type"]: m for m in msgs}
+    assert set(by_type) == {"welcome", "presence", "history"}
+    assert by_type["welcome"]["peer_id"]
+    assert isinstance(by_type["welcome"]["ice_servers"], list)
+
+
+def test_ws_call_signaling_relays_between_peers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
+    with client.websocket_connect("/ws") as a, client.websocket_connect("/ws") as b:
+        a.send_json({"type": "hello", "name": "Ana"})
+        a_msgs = [a.receive_json() for _ in range(3)]
+        peer_a = next(m["peer_id"] for m in a_msgs if m["type"] == "welcome")
+
+        b.send_json({"type": "hello", "name": "Beto"})
+        b_msgs = [b.receive_json() for _ in range(3)]
+        peer_b = next(m["peer_id"] for m in b_msgs if m["type"] == "welcome")
+
+        a.send_json({"type": "call-join"})
+        b.send_json({"type": "call-join"})
+        a.send_json({"type": "signal", "to": peer_b, "data": {"sdp": "oferta"}})
+
+        signal = None
+        for _ in range(8):
+            msg = b.receive_json()
+            if msg["type"] == "signal":
+                signal = msg
+                break
+
+    assert signal is not None
+    assert signal["from"] == peer_a
+    assert signal["data"] == {"sdp": "oferta"}
 
 
 def test_ws_chat_is_broadcast(tmp_path: object, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
     with client.websocket_connect("/ws") as ws:
         ws.send_json({"type": "hello", "name": "Ana"})
-        ws.receive_json()
-        ws.receive_json()
+        for _ in range(3):  # welcome + presence + history
+            ws.receive_json()
         ws.send_json({"type": "chat", "channel": "general", "body": "hola equipo"})
         chat = ws.receive_json()
     assert chat["type"] == "chat"
