@@ -1201,6 +1201,104 @@ function setupSearch() {
   });
 }
 
+/* ── Índices del corpus (T-707) ──────────────────────────────────────── */
+
+const CORPUS_LABELS = {
+  decisions: "Decisiones",
+  tasks: "Tareas",
+  themes: "Temas recurrentes",
+  serendipity: "Serendipia",
+};
+
+/* Mini-renderizador de Markdown: escapa primero y luego aplica un subconjunto
+   (cabeceras, listas, checklists, wikilinks, negrita, citas, regla). */
+function renderMarkdown(md) {
+  const out = [];
+  let inList = false;
+  const closeList = () => {
+    if (inList) {
+      out.push("</ul>");
+      inList = false;
+    }
+  };
+  for (const raw of md.split("\n")) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      closeList();
+      continue;
+    }
+    let s = escapeHtml(line);
+    s = s.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+      const label = inner.includes("|") ? inner.split("|").slice(1).join("|") : inner;
+      return `<span class="cite">${label}</span>`;
+    });
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    if (/^### /.test(line)) {
+      closeList();
+      out.push(`<h5>${s.slice(4)}</h5>`);
+    } else if (/^## /.test(line)) {
+      closeList();
+      out.push(`<h4>${s.slice(3)}</h4>`);
+    } else if (/^# /.test(line)) {
+      closeList();
+      out.push(`<h3>${s.slice(2)}</h3>`);
+    } else if (/^&gt; /.test(s)) {
+      closeList();
+      out.push(`<blockquote>${s.slice(5)}</blockquote>`);
+    } else if (/^-{3,}$/.test(line)) {
+      closeList();
+      out.push("<hr />");
+    } else if (/^- \[[ xX]\] /.test(line)) {
+      if (!inList) {
+        out.push('<ul class="md-list">');
+        inList = true;
+      }
+      const done = /^- \[[xX]\]/.test(line);
+      out.push(`<li class="md-task">${done ? "☑" : "☐"} ${s.slice(6)}</li>`);
+    } else if (/^[-*] /.test(line)) {
+      if (!inList) {
+        out.push('<ul class="md-list">');
+        inList = true;
+      }
+      out.push(`<li>${s.slice(2)}</li>`);
+    } else {
+      closeList();
+      out.push(`<p>${s}</p>`);
+    }
+  }
+  closeList();
+  return out.join("");
+}
+
+async function loadCorpusIndex(index) {
+  const body = document.getElementById("corpus-body");
+  document.querySelectorAll(".corpus-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.index === index);
+  });
+  body.innerHTML = `<p class="results-hint">Cargando ${escapeHtml(
+    CORPUS_LABELS[index] || index
+  )}…</p>`;
+  try {
+    const data = await getJSON(`/corpus/${encodeURIComponent(index)}`);
+    if (!data.generated) {
+      body.innerHTML = `<p class="results-empty">Este índice aún no se ha generado.
+        Córrelo desde la terminal: <code>enigma ${escapeHtml(index)}</code>.</p>`;
+      return;
+    }
+    body.innerHTML = `<div class="md-render">${renderMarkdown(data.markdown || "")}</div>`;
+  } catch (err) {
+    body.innerHTML = `<p class="results-empty">No se pudo cargar el índice: ${escapeHtml(
+      err.message
+    )}</p>`;
+  }
+}
+
+function setupCorpus() {
+  document.querySelectorAll(".corpus-tab").forEach((tab) => {
+    tab.addEventListener("click", () => loadCorpusIndex(tab.dataset.index));
+  });
+}
+
 /* ── Arranque ────────────────────────────────────────────────────────── */
 
 initConstellation();
@@ -1208,6 +1306,7 @@ setupGate();
 setupComposer();
 setupAsk();
 setupSearch();
+setupCorpus();
 setupModal();
 
 // Refresca el estado de las llamadas mientras se mira el lobby de la llamada.

@@ -12,6 +12,7 @@ navegador además de la CLI:
 - `GET  /calls`    → llamadas registradas y su estado de procesado.
 - `GET  /calls/{id}/notes` → notas extraídas de una llamada.
 - `GET  /calls/{id}/detail` → resumen IA + notas + decisiones + tareas.
+- `GET  /corpus/{index}` → índice transversal del corpus (decisiones, etc.).
 - `POST /ask`      → pregunta en lenguaje natural → respuesta RAG con citas.
 - `POST /calls/upload` → sube la grabación de una llamada → pipeline.
 - `POST /calls/{id}/brainstorm` → la IA expande las ideas de una llamada.
@@ -286,6 +287,60 @@ def call_brainstorm(call_id: UUID) -> Brainstorm:
         return brainstorm_call(call_id)
     except BrainstormError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+# Índices transversales del corpus que generan los comandos `enigma <cmd>`,
+# mapeados a su fichero en la raíz del Vault.
+_CORPUS_INDEXES = {
+    "decisions": "decisions.md",
+    "tasks": "tasks.md",
+    "themes": "recurring-themes.md",
+    "serendipity": "serendipity.md",
+}
+
+
+def _strip_frontmatter(text: str) -> str:
+    """Devuelve el cuerpo de un `.md`, sin el bloque de frontmatter YAML inicial."""
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            return text[end + 4 :].lstrip("\n")
+    return text
+
+
+class CorpusIndex(BaseModel):
+    """Un índice transversal del corpus, listo para mostrar en la app."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: str
+    generated: bool
+    markdown: str | None
+
+
+@app.get("/corpus/{index}", response_model=CorpusIndex)
+def corpus_index(index: str) -> CorpusIndex:
+    """Devuelve un índice transversal del corpus (decisiones, tareas, temas,
+    serendipia) tal y como lo dejó la CLI, para mostrarlo en la app.
+
+    Lee el `.md` del Vault; **no regenera** — regenerar es lento (N llamadas
+    al LLM) y queda como tarea operativa de la CLI (`enigma decisions`, etc.).
+    `generated: false` si el índice aún no se ha creado.
+
+    Raises:
+        HTTPException: 404 si `index` no es un índice de corpus conocido.
+    """
+    filename = _CORPUS_INDEXES.get(index)
+    if filename is None:
+        raise HTTPException(status_code=404, detail="Índice de corpus desconocido.")
+    path = settings.enigma_vault_path / filename
+    if not path.is_file():
+        return CorpusIndex(index=index, generated=False, markdown=None)
+    return CorpusIndex(
+        index=index,
+        generated=True,
+        markdown=_strip_frontmatter(path.read_text(encoding="utf-8")),
+    )
 
 
 def _process_upload(audio_path: Path, title: str) -> None:

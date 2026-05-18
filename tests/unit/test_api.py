@@ -497,6 +497,50 @@ def test_call_brainstorm_503_when_llm_fails() -> None:
     assert response.json()["detail"]
 
 
+# ── GET /corpus/{index} (T-707) ──────────────────────────────────────────────
+
+
+def test_corpus_index_returns_markdown_without_frontmatter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "enigma_vault_path", tmp_path)
+    (tmp_path / "decisions.md").write_text(
+        "---\ntype: decision-index\n---\n\n# Decisiones\n\n- Subir precios\n",
+        encoding="utf-8",
+    )
+    response = client.get("/corpus/decisions")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated"] is True
+    assert body["markdown"].startswith("# Decisiones")
+    assert "type: decision-index" not in body["markdown"]
+
+
+def test_corpus_index_maps_themes_to_recurring_themes_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El índice `themes` se sirve desde `recurring-themes.md`."""
+    monkeypatch.setattr(settings, "enigma_vault_path", tmp_path)
+    (tmp_path / "recurring-themes.md").write_text("# Temas\n", encoding="utf-8")
+    response = client.get("/corpus/themes")
+    assert response.status_code == 200
+    assert response.json()["generated"] is True
+
+
+def test_corpus_index_not_generated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "enigma_vault_path", tmp_path)
+    response = client.get("/corpus/serendipity")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated"] is False
+    assert body["markdown"] is None
+
+
+def test_corpus_index_unknown_returns_404() -> None:
+    response = client.get("/corpus/bogus")
+    assert response.status_code == 404
+
+
 # ── WebSocket /ws ────────────────────────────────────────────────────────────
 
 

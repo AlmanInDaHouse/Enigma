@@ -362,10 +362,24 @@
     Verificación: smoke manual (hablar y ver el borde) + `node --check` de
     `app.js`; Web Audio + WebRTC no son testeables sin navegador (mismo
     patrón que T-602/T-705).
-- [ ] **T-707** *(opcional)* Surfacing de los índices del corpus en la web
+- [x] **T-707** *(opcional)* Surfacing de los índices del corpus en la web
   - *Aceptación:* `decisions` / `tasks` / `themes` / `serendipity`, hoy solo
     en CLI, accesibles desde la app vía endpoints `GET` + paneles. Solo si el
     usuario lo pide.
+  - **Nota:** `GET /corpus/{index}` en `api.py` (`index ∈ {decisions, tasks,
+    themes, serendipity}`) lee el `.md` del Vault y devuelve `{index,
+    generated, markdown}` (cuerpo sin frontmatter, `null` si el índice no se
+    ha generado); índice desconocido → 404. **Decisión: lee, no regenera** —
+    regenerar es N llamadas LLM (minutos), mala UX para un GET; la generación
+    sigue siendo tarea operativa de la CLI (`enigma decisions`, etc.), misma
+    lógica que la cadencia "semanal" de T-405. Frontend: panel "Lo que Enigma
+    ha razonado" en la vista "Consultar la memoria", 4 pestañas; mini-
+    renderizador de Markdown en `app.js` (escapa primero, luego cabeceras /
+    listas / checklists / wikilinks / negrita / cita / regla) porque el
+    frontend no tiene renderer y el `.md` crudo se ve mal. Si el índice no
+    está generado, el panel lo dice y sugiere el comando. Verificado en vivo
+    (`/corpus/decisions` generado, `/corpus/serendipity` no generado,
+    `/corpus/bogus` → 404). Tests en `test_api.py`.
 
 ---
 
@@ -395,4 +409,4 @@ Actualizar manualmente al cierre de cada fase:
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
 | 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |
-| 7 | 6 | 6 | 100% | ✅ Fase 7 completa. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail`). T-704: brainstorming IA sobre una llamada (`/calls/{id}/brainstorm`). T-705: badge de mensajes no leídos por canal. T-706: indicador de quién habla en la llamada. T-707 opcional, no acometido. |
+| 7 | 6 (+1) | 7 | 100% | ✅ Fase 7 completa, incluida la opcional T-707. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail`). T-704: brainstorming IA sobre una llamada (`/calls/{id}/brainstorm`). T-705: badge de mensajes no leídos por canal. T-706: indicador de quién habla en la llamada. T-707: índices del corpus surfaced en la web (`/corpus/{index}`). |
