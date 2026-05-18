@@ -100,6 +100,7 @@ module = [
     "pyannote.*",
     "faster_whisper.*",
     "soundfile",
+    "av",
     "torch",
     "tiktoken",
     "ollama",

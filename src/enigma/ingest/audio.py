@@ -5,6 +5,7 @@ Punto de entrada del pipeline. La función pública `register_call` es
 devuelve el `Call` existente sin tocar disco ni base de datos.
 """
 
+import contextlib
 import hashlib
 import shutil
 import uuid
@@ -16,8 +17,12 @@ from enigma.db import calls as calls_db
 from enigma.db.sqlite import get_connection
 from enigma.models.call import Call
 
-SUPPORTED_EXTENSIONS = frozenset({".wav", ".mp3", ".m4a", ".ogg"})
-"""Extensiones de audio aceptadas (RF-01)."""
+SUPPORTED_EXTENSIONS = frozenset({".wav", ".mp3", ".m4a", ".ogg", ".webm"})
+"""Extensiones de audio aceptadas (RF-01).
+
+`.webm` es el formato que produce `MediaRecorder` en el navegador al grabar
+una llamada (Fase 6, T-603) — sin él el bucle "grabar → pipeline" no cierra.
+"""
 
 # Namespace UUIDv5 arbitrario pero estable para derivar `call_id` del hash.
 # Cualquier UUID válido sirve; éste se eligió aleatoriamente y se queda fijo.
@@ -38,14 +43,25 @@ def _sha256_of_file(path: Path, *, chunk: int = 1 << 16) -> str:
 
 
 def _audio_duration_seconds(path: Path) -> float:
-    """Duración en segundos vía `soundfile`. Devuelve 0.0 si no se puede leer."""
-    try:
+    """Duración en segundos del audio.
+
+    Usa `soundfile` (rápido) y cae a PyAV si `soundfile`/libsndfile no entiende
+    el contenedor — es el caso de `.webm`, que libsndfile no soporta pero PyAV
+    sí. Devuelve 0.0 si ninguna de las dos vías puede leer el fichero.
+    """
+    with contextlib.suppress(Exception):
         import soundfile as sf
 
         info = sf.info(str(path))
-    except Exception:
-        return 0.0
-    return float(info.frames) / float(info.samplerate)
+        return float(info.frames) / float(info.samplerate)
+    with contextlib.suppress(Exception):
+        import av
+
+        with av.open(str(path)) as container:
+            if container.duration is not None:
+                # `container.duration` viene en microsegundos (AV_TIME_BASE).
+                return float(container.duration) / 1_000_000.0
+    return 0.0
 
 
 def register_call(audio_path: Path, *, title: str | None = None) -> Call:

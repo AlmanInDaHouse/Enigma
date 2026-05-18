@@ -251,11 +251,34 @@
     `body.detail` del cuerpo JSON. Verificado en vivo con Qdrant apagado:
     `/ask` y `/search` → 503 con `{detail: ...}` legible. Tests:
     `test_qdrant_client.py` (nuevo) + casos 503 en `test_api.py` y CLI.
-- [ ] **T-702** El bucle de la llamada grabada, completo
+- [x] **T-702** El bucle de la llamada grabada, completo
   - *Aceptación:* subir una grabación deja, al terminar el job, sus notas
     vectorizadas en Qdrant y su resumen IA en `vault/calls/` — la llamada
     grabada queda consultable por RAG. `_process_upload` encadena
     `ingest_audio` → `reindex_vault()` → `summarize_call(call.id)`.
+  - **Nota:** `api.py::_process_upload` encadena las tres etapas. `ingest` es
+    la etapa crítica (si falla, `return`); `reindex` y `summarize` son
+    enriquecimiento independiente, cada uno aislado en su `try/except` para
+    que un fallo no impida el otro — las notas ya quedan en el Vault (fuente
+    de verdad). `reindex_vault()` reindexa todo el Vault (idempotente, upsert
+    por `note_id`); coste O(N) aceptable para 6 personas en un job background.
+    El estado de la llamada NO cambia: `ingest_audio` marca `done` tras
+    escribir notas y reindex+summarize corren después (T-703 leerá el resumen
+    "si existe"). **Bug pre-existente destapado y arreglado en esta misma
+    tarea:** el bucle de T-603 *nunca funcionó* — `/calls/upload` guarda la
+    grabación como `.webm` (lo que produce `MediaRecorder`), pero
+    `register_call` rechazaba `.webm` (no estaba en `SUPPORTED_EXTENSIONS`);
+    los tests de T-603 mockeaban `ingest_audio` y no lo detectaron. Fix:
+    `.webm` añadido a `SUPPORTED_EXTENSIONS` (`ingest/audio.py`) y a **RF-01 /
+    CU-01 en `SPEC.md`** (cambio de spec menor y justificado: la Fase 6 graba
+    webm). `_audio_duration_seconds` gana un fallback a PyAV — `soundfile`/
+    libsndfile no lee webm; PyAV sí (ya es dep transitiva de faster-whisper).
+    faster-whisper decodifica webm internamente vía PyAV, así que el
+    transcriptor no necesitó cambios. Verificado en vivo: subir un webm de
+    90s → llamada `99e50e81` `done`, duración 90.0s, nota vectorizada en
+    Qdrant (1→2 puntos) y resumen IA en `vault/calls/`. Tests:
+    `test_api.py` (orden ingest→reindex→summarize + aislamiento de fallos),
+    `test_register_call.py` (acepta `.webm`).
 - [ ] **T-703** "Consultar llamada grabada" — vista de detalle rica
   - *Aceptación:* clicar una llamada en estado `done` muestra lo que la IA
     ingestó y razonó: resumen + notas + decisiones + tareas de esa llamada.
@@ -306,4 +329,4 @@ Actualizar manualmente al cierre de cada fase:
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
 | 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |
-| 7 | 6 | 1 | 17% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (`VectorStoreUnavailableError` → 503 legible). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |
+| 7 | 6 | 2 | 33% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |

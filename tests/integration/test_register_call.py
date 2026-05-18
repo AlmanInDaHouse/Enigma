@@ -74,6 +74,15 @@ def test_register_call_accepts_title(sample_wav: Path) -> None:
     assert call.title == "Brainstorm 2026-05"
 
 
+def test_register_call_accepts_webm(tmp_path: Path) -> None:
+    """`.webm` (grabaciones del navegador, Fase 6/T-603) se acepta sin error."""
+    src = tmp_path / "grabacion.webm"
+    src.write_bytes(b"\x00" * 1024)  # contenido arbitrario; la extensión es lo que valida
+    call = register_call(src)
+    assert call.audio_path.suffix == ".webm"
+    assert call.audio_path.exists()
+
+
 def test_register_call_rejects_unsupported_format(tmp_path: Path) -> None:
     bad = tmp_path / "notes.txt"
     bad.write_text("not audio")
@@ -87,5 +96,5 @@ def test_register_call_rejects_missing_file(tmp_path: Path) -> None:
 
 
 def test_supported_extensions_match_rf01() -> None:
-    """RF-01: aceptar wav, mp3, m4a, ogg."""
-    assert SUPPORTED_EXTENSIONS == frozenset({".wav", ".mp3", ".m4a", ".ogg"})
+    """RF-01: aceptar wav, mp3, m4a, ogg, webm."""
+    assert SUPPORTED_EXTENSIONS == frozenset({".wav", ".mp3", ".m4a", ".ogg", ".webm"})

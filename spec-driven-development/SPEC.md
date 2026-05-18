@@ -32,7 +32,7 @@ Total máximo: **6 personas concurrentes**.
 ## 4. Casos de uso principales
 
 ### CU-01 · Capturar una llamada
-Un contribuidor inicia una grabación (o sube un fichero de audio ya existente). El sistema acepta `.wav`, `.mp3`, `.m4a`, `.ogg`. La grabación se asocia a un *call_id* único.
+Un contribuidor inicia una grabación (o sube un fichero de audio ya existente). El sistema acepta `.wav`, `.mp3`, `.m4a`, `.ogg`, `.webm`. La grabación se asocia a un *call_id* único.
 
 ### CU-02 · Transcribir automáticamente
 La grabación se transcribe a texto con diarización (quién dijo qué, cuándo). El resultado se guarda como artefacto recuperable.
@@ -74,7 +74,7 @@ Un contribuidor abre Obsidian y ve las notas como Markdown normal. Puede editar,
 
 | ID | Requisito | Prioridad |
 |---|---|---|
-| RF-01 | Aceptar audio en `.wav`, `.mp3`, `.m4a`, `.ogg` hasta 4 horas de duración | Must |
+| RF-01 | Aceptar audio en `.wav`, `.mp3`, `.m4a`, `.ogg`, `.webm` hasta 4 horas de duración | Must |
 | RF-02 | Transcribir con WER ≤ 15% en español neutro de calidad telefónica | Must |
 | RF-03 | Diarización con al menos 2 hablantes distinguibles | Should |
 | RF-04 | Extraer entre 5 y 30 notas atómicas por hora de llamada | Must |

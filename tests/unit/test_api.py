@@ -6,7 +6,7 @@ contrato del endpoint sin tocar el pipeline RAG real.
 
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
@@ -258,9 +258,17 @@ def test_calls_lists_recent() -> None:
 # ── POST /calls/upload ───────────────────────────────────────────────────────
 
 
-def test_upload_call_schedules_ingest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_upload_call_runs_full_loop_in_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Subir una grabación encadena ingest → reindex → summarize (T-702)."""
     monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
-    with patch("enigma.api.ingest_audio") as mock_ingest:
+    call = _call("Reunión semanal")
+    with (
+        patch("enigma.api.ingest_audio", return_value=Mock(call=call)) as mock_ingest,
+        patch("enigma.api.reindex_vault") as mock_reindex,
+        patch("enigma.api.summarize_call") as mock_summarize,
+    ):
         response = client.post(
             "/calls/upload",
             params={"title": "Reunión semanal"},
@@ -273,6 +281,40 @@ def test_upload_call_schedules_ingest(tmp_path: Path, monkeypatch: pytest.Monkey
     assert mock_ingest.call_args.kwargs["title"] == "Reunión semanal"
     saved = mock_ingest.call_args.args[0]
     assert saved.exists()
+    mock_reindex.assert_called_once()
+    mock_summarize.assert_called_once_with(call.id)
+
+
+def test_upload_processing_survives_reindex_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Si la vectorización falla, el resumen se intenta igualmente (T-702)."""
+    monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
+    call = _call("Daily")
+    with (
+        patch("enigma.api.ingest_audio", return_value=Mock(call=call)),
+        patch("enigma.api.reindex_vault", side_effect=RuntimeError("Qdrant caído")),
+        patch("enigma.api.summarize_call") as mock_summarize,
+    ):
+        response = client.post("/calls/upload", content=b"webm-fake-audio-bytes")
+    assert response.status_code == 200
+    mock_summarize.assert_called_once_with(call.id)
+
+
+def test_upload_processing_aborts_when_ingest_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Si la ingesta falla, no se vectoriza ni se resume (T-702)."""
+    monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
+    with (
+        patch("enigma.api.ingest_audio", side_effect=RuntimeError("audio corrupto")),
+        patch("enigma.api.reindex_vault") as mock_reindex,
+        patch("enigma.api.summarize_call") as mock_summarize,
+    ):
+        response = client.post("/calls/upload", content=b"webm-fake-audio-bytes")
+    assert response.status_code == 200
+    mock_reindex.assert_not_called()
+    mock_summarize.assert_not_called()
 
 
 def test_upload_call_rejects_empty_body(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

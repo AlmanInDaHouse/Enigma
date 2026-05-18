@@ -39,6 +39,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from enigma import __version__
 from enigma.agent.rag import RagAnswer, RagError, answer_question
+from enigma.agent.summarizer import summarize_call
 from enigma.config import settings
 from enigma.db import calls as calls_db
 from enigma.db.sqlite import get_connection
@@ -48,6 +49,7 @@ from enigma.search import SearchResult, search_notes
 from enigma.stats import EnigmaStats, gather_stats
 from enigma.vault.reader import list_vault_notes
 from enigma.vector.qdrant_client import VectorStoreUnavailableError
+from enigma.vector.reindexer import reindex_vault
 
 _log = logging.getLogger(__name__)
 _WEB_DIR = Path(__file__).parent / "web"
@@ -180,11 +182,35 @@ def call_notes(call_id: UUID) -> list[CallNote]:
 
 
 def _process_upload(audio_path: Path, title: str) -> None:
-    """Job en background: mete la grabación subida en el pipeline de Enigma."""
+    """Job en background: mete la grabación en el pipeline y la deja consultable.
+
+    Encadena las tres etapas que cierran el bucle "grabar → IA → consultar":
+
+        1. `ingest_audio` — transcribe y extrae notas atómicas al Vault.
+        2. `reindex_vault` — vectoriza las notas en Qdrant (las hace
+           consultables por RAG y `/ask`).
+        3. `summarize_call` — genera el resumen IA en `vault/calls/`.
+
+    `ingest` es la etapa crítica: si falla, no hay nada que enriquecer. La
+    vectorización y el resumen son enriquecimiento independiente — cada uno se
+    aísla en su `try/except` para que un fallo (p.ej. Qdrant caído) no impida
+    el otro. Las notas ya quedan en el Vault, fuente de verdad, pase lo que
+    pase; un reindex fallido se recupera luego con `enigma reindex`.
+    """
     try:
-        ingest_audio(audio_path, title=title)
+        result = ingest_audio(audio_path, title=title)
     except Exception:
-        _log.exception("Falló el procesado de la grabación %s", audio_path)
+        _log.exception("Falló la ingesta de la grabación %s", audio_path)
+        return
+    call_id = result.call.id
+    try:
+        reindex_vault()
+    except Exception:
+        _log.exception("Falló la vectorización tras subir la llamada %s", call_id)
+    try:
+        summarize_call(call_id)
+    except Exception:
+        _log.exception("Falló el resumen de la llamada %s", call_id)
 
 
 @app.post("/calls/upload")
