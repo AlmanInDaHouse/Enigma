@@ -408,17 +408,27 @@ function createPeer(peerId, isInitiator) {
   const pc = new RTCPeerConnection({
     iceServers: state.call.iceServers.map((url) => ({ urls: url })),
   });
-  const entry = { pc, stream: null };
+  const entry = { pc, stream: null, videoSender: null };
   state.call.peers.set(peerId, entry);
 
-  for (const track of state.call.localStream.getTracks()) {
-    pc.addTrack(track, state.call.localStream);
-  }
+  // Dos transceptores fijos (audio + vídeo) en `sendrecv`: así siempre hay un
+  // emisor sobre el que hacer `replaceTrack`, aunque no haya cámara o micro,
+  // y se reciben los medios de los demás igualmente.
+  const stream = state.call.localStream;
+  const audioTrack = stream.getAudioTracks()[0];
+  const videoTrack = stream.getVideoTracks()[0];
+  pc.addTransceiver(audioTrack || "audio", { direction: "sendrecv", streams: [stream] });
+  const videoTx = pc.addTransceiver(videoTrack || "video", {
+    direction: "sendrecv",
+    streams: [stream],
+  });
+  entry.videoSender = videoTx.sender;
+
   pc.addEventListener("icecandidate", (event) => {
     if (event.candidate) sendSignal(peerId, { candidate: event.candidate });
   });
   pc.addEventListener("track", (event) => {
-    entry.stream = event.streams[0];
+    entry.stream = event.streams[0] || new MediaStream([event.track]);
     if (state.call.recording) addToMix(entry.stream);
     syncTiles();
   });
@@ -479,19 +489,29 @@ function closePeer(peerId) {
   syncTiles();
 }
 
-async function joinCall() {
-  try {
-    state.call.localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    });
-  } catch (err) {
-    renderLobby(`No se pudo acceder a la cámara o el micrófono: ${err.message}`);
-    return;
+async function acquireMedia() {
+  // Degrada con elegancia: cámara+micro → solo micro → solo cámara → nada.
+  // Sin dispositivos se entra igual, en modo solo-escucha (MediaStream vacío).
+  for (const constraints of [
+    { video: true, audio: true },
+    { video: false, audio: true },
+    { video: true, audio: false },
+  ]) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (_) {
+      /* probar la siguiente combinación de dispositivos */
+    }
   }
+  toast("Sin cámara ni micrófono — entras en modo solo-escucha.");
+  return new MediaStream();
+}
+
+async function joinCall() {
+  state.call.localStream = await acquireMedia();
   state.call.joined = true;
-  state.call.micOn = true;
-  state.call.camOn = true;
+  state.call.micOn = state.call.localStream.getAudioTracks().length > 0;
+  state.call.camOn = state.call.localStream.getVideoTracks().length > 0;
   wsSend({ type: "call-join" });
   updateCallBadge();
   renderCallView();
@@ -512,13 +532,13 @@ function leaveCall() {
 }
 
 function replaceVideoTrack(track) {
-  for (const { pc } of state.call.peers.values()) {
-    const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
-    if (sender) sender.replaceTrack(track);
+  for (const entry of state.call.peers.values()) {
+    if (entry.videoSender) entry.videoSender.replaceTrack(track).catch(() => {});
   }
   const localVideo = document.querySelector("#tile-local video");
   if (localVideo) {
-    localVideo.srcObject = new MediaStream([track, ...state.call.localStream.getAudioTracks()]);
+    const audio = state.call.localStream.getAudioTracks();
+    localVideo.srcObject = new MediaStream(track ? [track, ...audio] : audio);
   }
 }
 
@@ -544,7 +564,7 @@ async function toggleScreen() {
   if (state.call.screenStream) {
     state.call.screenStream.getTracks().forEach((t) => t.stop());
     state.call.screenStream = null;
-    replaceVideoTrack(state.call.localStream.getVideoTracks()[0]);
+    replaceVideoTrack(state.call.localStream.getVideoTracks()[0] || null);
     renderControls();
     return;
   }
@@ -837,6 +857,8 @@ function syncTiles() {
     if (!tile) continue;
     const video = tile.querySelector("video");
     if (entry.stream && video.srcObject !== entry.stream) video.srcObject = entry.stream;
+    const hasVideo = !!entry.stream && entry.stream.getVideoTracks().length > 0;
+    tile.classList.toggle("cam-off", !hasVideo);
     tile.querySelector(".tile-name").textContent = state.call.names.get(peerId) || "Invitado";
   }
 }
