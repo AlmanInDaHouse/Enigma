@@ -11,8 +11,10 @@ navegador además de la CLI:
 - `GET  /channels` → canales de chat disponibles.
 - `GET  /calls`    → llamadas registradas y su estado de procesado.
 - `GET  /calls/{id}/notes` → notas extraídas de una llamada.
+- `GET  /calls/{id}/detail` → resumen IA + notas + decisiones + tareas.
 - `POST /ask`      → pregunta en lenguaje natural → respuesta RAG con citas.
 - `POST /calls/upload` → sube la grabación de una llamada → pipeline.
+- `POST /calls/{id}/brainstorm` → la IA expande las ideas de una llamada.
 - `WS   /ws`       → chat + presencia + señalización WebRTC (Fase 6).
 
 La app se sirve con `enigma serve` (uvicorn). Los modelos de respuesta ya son
@@ -38,6 +40,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from enigma import __version__
+from enigma.agent.brainstorm import Brainstorm, BrainstormError, brainstorm_call
 from enigma.agent.decisions import extract_decisions_from_call
 from enigma.agent.rag import RagAnswer, RagError, answer_question
 from enigma.agent.summarizer import CallSummary, read_call_summary, summarize_call
@@ -262,6 +265,27 @@ def call_detail(call_id: UUID) -> CallDetail:
         decisions=decisions,
         tasks=tasks,
     )
+
+
+@app.post("/calls/{call_id}/brainstorm", response_model=Brainstorm)
+def call_brainstorm(call_id: UUID) -> Brainstorm:
+    """Brainstorming IA sobre una llamada grabada.
+
+    Pide al LLM local que expanda lo tratado en la llamada — analogías,
+    próximos pasos, preguntas abiertas y riesgos — razonando sobre su
+    transcript. Es una llamada al LLM: la respuesta puede tardar ~15-30 s.
+
+    Raises:
+        HTTPException: 404 si la llamada no existe; 503 si el LLM falla.
+    """
+    with get_connection() as conn:
+        call = calls_db.get_call(conn, call_id)
+    if call is None:
+        raise HTTPException(status_code=404, detail="No existe esa llamada.")
+    try:
+        return brainstorm_call(call_id)
+    except BrainstormError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 def _process_upload(audio_path: Path, title: str) -> None:

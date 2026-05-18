@@ -881,6 +881,33 @@ body::before {
 .modal-list + .chip-row { margin-top: 14px; }
 .modal-assignee { color: var(--teal); font-size: 12.5px; }
 
+/* ── Brainstorming de una llamada (T-704) ─────────────────────────────── */
+.brainstorm-btn {
+  width: 100%;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: var(--ink-4);
+  border: 1px solid rgba(236, 180, 85, 0.4);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+.brainstorm-btn:hover { background: var(--ink-3); border-color: var(--amber); }
+.brainstorm-cat { margin-top: 16px; }
+.brainstorm-cat:first-child { margin-top: 4px; }
+.brainstorm-cat-title {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 7px;
+}
+
 /* ── Animaciones ──────────────────────────────────────────────────────── */
 
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }

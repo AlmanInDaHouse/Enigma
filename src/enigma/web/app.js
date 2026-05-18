@@ -750,6 +750,54 @@ async function openCallDetail(callId, title, status) {
     return;
   }
   openModal(head + renderCallDetail(detail));
+  const brainstormBtn = document.getElementById("brainstorm-btn");
+  if (brainstormBtn) {
+    brainstormBtn.addEventListener("click", () => runBrainstorm(callId));
+  }
+}
+
+async function runBrainstorm(callId) {
+  const zone = document.getElementById("brainstorm-zone");
+  if (!zone) return;
+  zone.innerHTML = `<h4 class="modal-section-title">Brainstorming</h4>
+    <p class="modal-empty"><span class="orb"></span> Enigma está expandiendo las ideas
+    de la llamada: analogías, próximos pasos, preguntas y riesgos…</p>`;
+  try {
+    const b = await getJSON(`/calls/${encodeURIComponent(callId)}/brainstorm`, {
+      method: "POST",
+    });
+    zone.innerHTML = `<h4 class="modal-section-title">Brainstorming de Enigma</h4>${renderBrainstorm(
+      b
+    )}`;
+  } catch (err) {
+    zone.innerHTML = `<h4 class="modal-section-title">Brainstorming</h4>
+      <p class="modal-empty">No se pudo generar el brainstorming: ${escapeHtml(
+        err.message
+      )}</p>`;
+  }
+}
+
+function renderBrainstorm(b) {
+  const category = (title, items) => {
+    if (!items || !items.length) return "";
+    const li = items.map((i) => `<li>${escapeHtml(i)}</li>`).join("");
+    return `<div class="brainstorm-cat">
+      <h5 class="brainstorm-cat-title">${title}</h5>
+      <ul class="modal-list">${li}</ul>
+    </div>`;
+  };
+  const blocks = [
+    category("Analogías", b.analogies),
+    category("Próximos pasos", b.next_steps),
+    category("Preguntas abiertas", b.open_questions),
+    category("Riesgos", b.risks),
+  ]
+    .filter(Boolean)
+    .join("");
+  return (
+    blocks ||
+    '<p class="modal-empty">Enigma no encontró ideas nuevas que añadir a esta llamada.</p>'
+  );
 }
 
 function renderCallDetail(d) {
@@ -816,6 +864,12 @@ function renderCallDetail(d) {
         ? `<ul class="modal-list">${tasks}</ul>`
         : '<p class="modal-empty">No se identificaron tareas en esta llamada.</p>'
     }
+  </div>`);
+
+  sections.push(`<div class="modal-section" id="brainstorm-zone">
+    <button class="brainstorm-btn" id="brainstorm-btn" type="button">
+      ✦ Brainstorming con Enigma
+    </button>
   </div>`);
 
   return sections.join("");

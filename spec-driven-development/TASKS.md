@@ -303,11 +303,29 @@
     `test_api.py` (vista completa, 404, resumen ausente, aislamiento de
     fallos, sin transcript), `test_summarizer.py` (round-trip de
     `read_call_summary`).
-- [ ] **T-704** Botón "Brainstorming" — la IA razona sobre la llamada
+- [x] **T-704** Botón "Brainstorming" — la IA razona sobre la llamada
   - *Aceptación:* pulsar "Brainstorming" sobre una llamada devuelve ideas
     nuevas razonadas sobre sus notas (analogías, próximos pasos, preguntas
     abiertas, riesgos). `POST /calls/{id}/brainstorm` →
     `agent/brainstorm.py::brainstorm_call`.
+  - **Nota:** `agent/brainstorm.py` (nuevo) — `brainstorm_call(call_id) ->
+    Brainstorm` (4 listas: `analogies`, `next_steps`, `open_questions`,
+    `risks`). Prompt `build_brainstorm_messages` en `agent/prompts.py`:
+    EXPANDE las ideas en vez de resumir — busca lo que la llamada NO dijo.
+    Temperatura 0.6 (más alta que la extracción factual de decisiones/tareas:
+    aquí se quiere divergencia). Single-shot sobre el transcript completo
+    (decisión: el transcript es la fuente más rica, consistente con el resto
+    del agente; las notas atómicas pueden ser pocas). LLM con `format=json` +
+    3 reintentos, mismo patrón que `decisions.py`/`tasks_extractor.py`. No
+    escribe ninguna nota — el resultado se consume en vivo. `POST
+    /calls/{id}/brainstorm` en `api.py`: 404 si la llamada no existe, 503 si
+    el LLM falla. Frontend: botón **"✦ Brainstorming con Enigma"** en el
+    detalle de llamada (T-703) → estado de carga → 4 categorías; acento ámbar
+    (creativo) frente al teal (factual). Verificado: test de integración real
+    (`test_brainstorm_real.py`) + `POST /brainstorm` en vivo sobre la llamada
+    `99e50e81` → 200 con ideas coherentes en las 4 categorías. Tests:
+    `test_brainstorm.py` (parseo, transcript ausente/vacío, items en blanco,
+    JSON inválido) + `test_api.py` (200/404/503).
 - [ ] **T-705** Mensajes nuevos — badge de no leídos
   - *Aceptación:* llega un mensaje a un canal no activo → aparece su contador
     numérico en la barra lateral; al abrir el canal, desaparece. Verificación:
@@ -349,4 +367,4 @@ Actualizar manualmente al cierre de cada fase:
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
 | 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |
-| 7 | 6 | 3 | 50% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail` — resumen + notas + decisiones + tareas). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |
+| 7 | 6 | 4 | 67% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail`). T-704: brainstorming IA sobre una llamada (`/calls/{id}/brainstorm`). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |

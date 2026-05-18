@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
+from enigma.agent.brainstorm import Brainstorm, BrainstormError
 from enigma.agent.rag import Citation, RagAnswer, RagError
 from enigma.agent.summarizer import CallSummary
 from enigma.api import app
@@ -449,6 +450,51 @@ def test_call_detail_no_transcript_skips_extraction() -> None:
     assert body["tasks"] == []
     mock_dec.assert_not_called()
     mock_task.assert_not_called()
+
+
+# ── POST /calls/{id}/brainstorm (T-704) ──────────────────────────────────────
+
+
+def test_call_brainstorm_returns_expanded_ideas() -> None:
+    call = _call()
+    brainstorm = Brainstorm(
+        call_id=call.id,
+        analogies=["Como un gimnasio de barrio"],
+        next_steps=["Pilotar con un club"],
+        open_questions=["¿Qué densidad mínima?"],
+        risks=["Canibalizar socios actuales"],
+    )
+    with (
+        patch("enigma.api.calls_db.get_call", return_value=call),
+        patch("enigma.api.brainstorm_call", return_value=brainstorm) as mock_bs,
+    ):
+        response = client.post(f"/calls/{call.id}/brainstorm")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["analogies"] == ["Como un gimnasio de barrio"]
+    assert body["risks"] == ["Canibalizar socios actuales"]
+    mock_bs.assert_called_once_with(call.id)
+
+
+def test_call_brainstorm_404_when_call_missing() -> None:
+    with patch("enigma.api.calls_db.get_call", return_value=None):
+        response = client.post(f"/calls/{uuid4()}/brainstorm")
+    assert response.status_code == 404
+
+
+def test_call_brainstorm_503_when_llm_fails() -> None:
+    """Un fallo del LLM en el brainstorming devuelve 503, no un 500 opaco."""
+    call = _call()
+    with (
+        patch("enigma.api.calls_db.get_call", return_value=call),
+        patch(
+            "enigma.api.brainstorm_call",
+            side_effect=BrainstormError("El LLM no produjo un brainstorming válido"),
+        ),
+    ):
+        response = client.post(f"/calls/{call.id}/brainstorm")
+    assert response.status_code == 503
+    assert response.json()["detail"]
 
 
 # ── WebSocket /ws ────────────────────────────────────────────────────────────
