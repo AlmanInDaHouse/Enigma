@@ -11,6 +11,7 @@ const state = {
   channel: "general",
   channels: ["general"],
   messages: [],
+  unread: {}, // canal -> nº de mensajes no leídos en esta sesión
   ws: null,
   statsLoaded: false,
   call: {
@@ -218,7 +219,9 @@ async function loadChannels() {
     .map(
       (ch) =>
         `<li><button class="nav-item" data-channel="${escapeHtml(ch)}">` +
-        `<span class="hash">#</span> ${escapeHtml(ch)}</button></li>`
+        `<span class="hash">#</span> ${escapeHtml(ch)}` +
+        `<span class="unread-badge" data-badge="${escapeHtml(ch)}" hidden></span>` +
+        `</button></li>`
     )
     .join("");
   list.querySelectorAll("[data-channel]").forEach((btn) => {
@@ -230,8 +233,21 @@ async function loadChannels() {
   setChannel(state.channels[0]);
 }
 
+/* Pinta el contador de no leídos en cada canal de la barra lateral. */
+function renderUnread() {
+  for (const ch of state.channels) {
+    const badge = document.querySelector(`[data-badge="${CSS.escape(ch)}"]`);
+    if (!badge) continue;
+    const n = state.unread[ch] || 0;
+    badge.textContent = n > 99 ? "99+" : String(n);
+    badge.hidden = n === 0;
+  }
+}
+
 function setChannel(channel) {
   state.channel = channel;
+  state.unread[channel] = 0; // al abrir el canal, sus mensajes quedan vistos
+  renderUnread();
   document.getElementById("channel-name").textContent = channel;
   document.getElementById("composer-input").placeholder = `Escribe en #${channel}…`;
   setView("chat");
@@ -336,10 +352,18 @@ function handleWsMessage(data) {
       state.messages = data.messages;
       renderMessages();
       break;
-    case "chat":
+    case "chat": {
       state.messages.push(data.message);
-      if (data.message.channel === state.channel && state.view === "chat") renderMessages();
+      const ch = data.message.channel;
+      const looking = ch === state.channel && state.view === "chat";
+      if (looking) {
+        renderMessages();
+      } else {
+        state.unread[ch] = (state.unread[ch] || 0) + 1;
+        renderUnread();
+      }
       break;
+    }
     case "presence":
       renderPresence(data.users);
       break;

@@ -326,10 +326,23 @@
     `99e50e81` → 200 con ideas coherentes en las 4 categorías. Tests:
     `test_brainstorm.py` (parseo, transcript ausente/vacío, items en blanco,
     JSON inválido) + `test_api.py` (200/404/503).
-- [ ] **T-705** Mensajes nuevos — badge de no leídos
+- [x] **T-705** Mensajes nuevos — badge de no leídos
   - *Aceptación:* llega un mensaje a un canal no activo → aparece su contador
     numérico en la barra lateral; al abrir el canal, desaparece. Verificación:
     smoke manual (dos pestañas).
+  - **Nota:** frontend puro (`app.js` + `style.css`, sin tocar backend).
+    `state.unread` (mapa `canal → nº`). El handler WebSocket de `chat`
+    incrementa el contador del canal cuando el mensaje NO llega al canal
+    activo en vista de chat (`looking`); `setChannel` lo pone a 0 al abrir el
+    canal. Badge numérico (pill ámbar, `99+` como tope) en cada ítem de canal,
+    actualizado por `renderUnread()` sin re-renderizar la lista. **Decisión:**
+    el contador es estado de sesión en memoria — no se persiste; recargar la
+    página lo resetea. "No leído" es relativo a la sesión abierta; persistirlo
+    exigiría rastrear un "último visto" por usuario y no hay login real
+    (Fase 6: identidad = nombre en localStorage). El historial inicial
+    (`history`) no cuenta como no leído. Verificación: smoke manual con dos
+    pestañas (no automatizable sin runner de navegador; mismo patrón que la
+    Fase 6) + `node --check` de `app.js`.
 - [ ] **T-706** Indicador de quién habla en la llamada
   - *Aceptación:* al hablar, el recuadro de vídeo de quien habla se ilumina
     (borde luminoso); en silencio, no. `AnalyserNode` de Web Audio por stream.
@@ -367,4 +380,4 @@ Actualizar manualmente al cierre de cada fase:
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
 | 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |
-| 7 | 6 | 4 | 67% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail`). T-704: brainstorming IA sobre una llamada (`/calls/{id}/brainstorm`). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |
+| 7 | 6 | 5 | 83% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail`). T-704: brainstorming IA sobre una llamada (`/calls/{id}/brainstorm`). T-705: badge de mensajes no leídos por canal. Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |

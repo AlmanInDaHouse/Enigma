@@ -215,6 +215,19 @@ body::before {
 .nav-glyph { color: var(--text-faint); font-size: 13px; }
 .nav-item.active .nav-glyph { color: var(--amber); }
 .nav-item .hash { color: var(--text-faint); }
+.unread-badge {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--amber);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
 
 .presence { margin-top: auto; }
 .presence-list { list-style: none; display: flex; flex-direction: column; gap: 3px; }
