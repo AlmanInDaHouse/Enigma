@@ -16,6 +16,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 from qdrant_client import QdrantClient
+from qdrant_client.http.exceptions import ResponseHandlingException
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
 from enigma.config import settings
@@ -23,6 +24,17 @@ from enigma.models.note import Note
 
 VECTOR_SIZE = 768
 """Dimensión de los embeddings de `nomic-embed-text`."""
+
+
+class VectorStoreUnavailableError(RuntimeError):
+    """Qdrant no responde (servicio caído, puerto cerrado, timeout).
+
+    Distinto de "la colección no existe": eso es un estado legítimo de un
+    sistema recién instalado y se trata devolviendo resultados vacíos. Esto,
+    en cambio, es un fallo operativo que el usuario debe ver — quien lo
+    captura (la API, la CLI) lo traduce a un mensaje claro de "arranca Qdrant"
+    en vez de a un 500 opaco.
+    """
 
 
 class SearchHit(BaseModel):
@@ -106,12 +118,22 @@ def search(
     ninguna nota indexada) devuelve una lista vacía en vez de fallar — así
     `enigma search` y el endpoint `/ask` responden con normalidad antes del
     primer `ingest`/`reindex`.
+
+    Raises:
+        VectorStoreUnavailableError: si Qdrant no responde (servicio caído). Se
+            distingue de "colección ausente" para que la capa de arriba dé un
+            mensaje accionable en vez de un 500 opaco.
     """
     qdrant = client or get_client()
     name = collection or settings.qdrant_collection
-    if not qdrant.collection_exists(name):
-        return []
-    response = qdrant.query_points(collection_name=name, query=vector, limit=top_k)
+    try:
+        if not qdrant.collection_exists(name):
+            return []
+        response = qdrant.query_points(collection_name=name, query=vector, limit=top_k)
+    except ResponseHandlingException as exc:
+        raise VectorStoreUnavailableError(
+            "La base vectorial no responde. Arranca Qdrant: docker compose up -d qdrant",
+        ) from exc
     return [
         SearchHit(
             note_id=UUID(str(point.id)),

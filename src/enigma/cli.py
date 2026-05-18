@@ -182,12 +182,17 @@ def search(
     from rich.table import Table
 
     from enigma.search import search_notes
+    from enigma.vector.qdrant_client import VectorStoreUnavailableError
 
     console = Console()
     if not query.strip():
         raise typer.BadParameter("La consulta no puede estar vacía.")
 
-    results = search_notes(query, top_k=top_k)
+    try:
+        results = search_notes(query, top_k=top_k)
+    except VectorStoreUnavailableError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
     if not results:
         console.print("[yellow]Sin resultados para esa consulta.[/yellow]")
         return
@@ -231,6 +236,7 @@ def ask(
     from rich.panel import Panel
 
     from enigma.agent.rag import RagError, answer_question
+    from enigma.vector.qdrant_client import VectorStoreUnavailableError
 
     console = Console()
     if not question.strip():
@@ -238,7 +244,7 @@ def ask(
 
     try:
         result = answer_question(question, top_k=top_k)
-    except RagError as exc:
+    except (VectorStoreUnavailableError, RagError) as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
 

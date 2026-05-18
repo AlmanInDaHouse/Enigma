@@ -47,6 +47,7 @@ from enigma.realtime import CHANNELS, manager, recent_messages, store_chat
 from enigma.search import SearchResult, search_notes
 from enigma.stats import EnigmaStats, gather_stats
 from enigma.vault.reader import list_vault_notes
+from enigma.vector.qdrant_client import VectorStoreUnavailableError
 
 _log = logging.getLogger(__name__)
 _WEB_DIR = Path(__file__).parent / "web"
@@ -111,7 +112,10 @@ def search(
     """
     if not q.strip():
         raise HTTPException(status_code=422, detail="La consulta no puede estar vacía.")
-    return search_notes(q, top_k=top_k)
+    try:
+        return search_notes(q, top_k=top_k)
+    except VectorStoreUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/channels", response_model=list[str])
@@ -265,8 +269,12 @@ async def chat_socket(websocket: WebSocket) -> None:
 def ask(request: AskRequest) -> RagAnswer:
     """Responde una pregunta con RAG sobre el Vault y devuelve citas verificadas.
 
+    Un servicio caído (Qdrant o el LLM) o cualquier fallo inesperado devuelve
+    un 503 con un mensaje accionable — nunca un 500 opaco que el frontend solo
+    pueda mostrar como "Error 500".
+
     Raises:
-        HTTPException: 503 si el LLM local falla al generar la respuesta.
+        HTTPException: 503 si la base vectorial o el LLM local no responden.
     """
     try:
         return answer_question(
@@ -274,5 +282,14 @@ def ask(request: AskRequest) -> RagAnswer:
             top_k=request.top_k,
             rerank=request.rerank,
         )
-    except RagError as exc:
+    except (VectorStoreUnavailableError, RagError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # red de seguridad: nunca un 500 opaco
+        _log.exception("Fallo inesperado al responder /ask")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Enigma no pudo responder ahora mismo. Comprueba que Qdrant y "
+                "Ollama estén arrancados."
+            ),
+        ) from exc

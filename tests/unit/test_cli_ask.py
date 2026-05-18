@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 from enigma.agent.rag import Citation, RagAnswer, RagError
 from enigma.cli import app
 from enigma.search import SearchResult
+from enigma.vector.qdrant_client import VectorStoreUnavailableError
 
 runner = CliRunner()
 
@@ -75,6 +76,15 @@ def test_ask_handles_rag_error() -> None:
         result = runner.invoke(app, ["ask", "pregunta"])
     assert result.exit_code == 1
     assert "Error" in result.output
+
+
+def test_ask_handles_vector_store_down() -> None:
+    """Qdrant caído → la CLI sale con código 1 y un mensaje claro (T-701)."""
+    error = VectorStoreUnavailableError("La base vectorial no responde. Arranca Qdrant.")
+    with patch("enigma.agent.rag.answer_question", side_effect=error):
+        result = runner.invoke(app, ["ask", "pregunta"])
+    assert result.exit_code == 1
+    assert "Qdrant" in result.output
 
 
 def test_ask_propagates_top_k() -> None:

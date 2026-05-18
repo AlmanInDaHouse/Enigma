@@ -21,6 +21,7 @@ from enigma.models.call import Call
 from enigma.search import SearchResult
 from enigma.stats import ActivityStats, CorpusStats, EnigmaStats, HealthProbe
 from enigma.vault.reader import NoteSummary
+from enigma.vector.qdrant_client import VectorStoreUnavailableError
 
 client = TestClient(app)
 runner = CliRunner()
@@ -91,6 +92,25 @@ def test_ask_rag_error_returns_503() -> None:
         response = client.post("/ask", json={"question": "pregunta"})
     assert response.status_code == 503
     assert "LLM caído" in response.json()["detail"]
+
+
+def test_ask_vector_store_down_returns_503_with_actionable_detail() -> None:
+    """Qdrant caído → 503 entendible, no un 500 opaco (T-701)."""
+    error = VectorStoreUnavailableError(
+        "La base vectorial no responde. Arranca Qdrant: docker compose up -d qdrant",
+    )
+    with patch("enigma.api.answer_question", side_effect=error):
+        response = client.post("/ask", json={"question": "pregunta"})
+    assert response.status_code == 503
+    assert "Qdrant" in response.json()["detail"]
+
+
+def test_ask_unexpected_error_returns_503_not_500() -> None:
+    """Cualquier fallo inesperado se traduce a un 503 con JSON, nunca un 500."""
+    with patch("enigma.api.answer_question", side_effect=RuntimeError("boom")):
+        response = client.post("/ask", json={"question": "pregunta"})
+    assert response.status_code == 503
+    assert response.json()["detail"]  # cuerpo JSON con mensaje, no texto plano
 
 
 def test_ask_blank_question_returns_422() -> None:
@@ -188,6 +208,15 @@ def test_search_blank_query_returns_422() -> None:
 def test_search_missing_query_returns_422() -> None:
     response = client.get("/search")
     assert response.status_code == 422
+
+
+def test_search_vector_store_down_returns_503() -> None:
+    """Qdrant caído → `/search` responde 503, no un 500 opaco (T-701)."""
+    error = VectorStoreUnavailableError("La base vectorial no responde.")
+    with patch("enigma.api.search_notes", side_effect=error):
+        response = client.get("/search", params={"q": "padel"})
+    assert response.status_code == 503
+    assert response.json()["detail"]
 
 
 # ── GET /channels ────────────────────────────────────────────────────────────

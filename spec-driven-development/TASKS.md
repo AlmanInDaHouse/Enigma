@@ -215,6 +215,71 @@
 
 ---
 
+## Fase 7 — Cierre del bucle de llamada + UX (post-MVP)
+
+> Objetivo: que el bucle ya construido en la Fase 6 — grabar llamada → IA →
+> consultar → brainstorming — **funcione de verdad de punta a punta**, y pulir
+> chat y llamadas. Origen: tras probar la app, el usuario reportó que el
+> frontend no expone todo el flujo y que un servicio caído rompía la app.
+>
+> **Ampliación de alcance** a petición del usuario (2026-05-18). No estaba en
+> el `SPEC.md` original. T-701 y T-702 son las que hacen que el bucle ya
+> existente funcione; van primero. Orden: T-701 → T-702 → T-703 → T-704 →
+> T-705 → T-706.
+
+- [x] **T-701** Robustez: un servicio caído no rompe la app *(bug)*
+  - *Aceptación:* con Qdrant apagado, `POST /ask` responde **503** con mensaje
+    entendible ("la base vectorial no responde; arranca Qdrant"); con Qdrant
+    encendido, `/ask` funciona. El panel de respuesta del frontend muestra el
+    texto del 503, no "Error 500". Tests de `search` con Qdrant inalcanzable
+    (mock que lanza error de conexión).
+  - **Nota:** nueva excepción tipada `VectorStoreUnavailableError` en
+    `vector/qdrant_client.py`. `search()` distingue dos estados: *colección
+    ausente* → sigue devolviendo `[]` (sistema sin indexar, normal desde
+    T-305); *Qdrant inalcanzable* (`ResponseHandlingException` del cliente) →
+    lanza `VectorStoreUnavailableError` con mensaje accionable. **Desviación
+    del prompt de continuidad** (que pedía devolver `[]` también en el caso de
+    conexión): tragarse el fallo conflaría "Qdrant caído" con "corpus vacío" —
+    el mismo anti-patrón que T-701 corrige — y `/ask` respondería 200 "no
+    encontré información" en vez de 503. La excepción tipada permite además
+    dar el mensaje específico "arranca Qdrant" sin etiquetar mal cualquier
+    otro bug. `/ask` captura `VectorStoreUnavailableError`/`RagError` → 503, y
+    cualquier excepción inesperada → 503 genérico (red de seguridad: nunca un
+    500 opaco de texto plano que el frontend solo pueda mostrar como "Error
+    500"). `/search` y los comandos CLI `ask`/`search` capturan la misma
+    excepción. El frontend no necesita cambios: `getJSON` ya extrae
+    `body.detail` del cuerpo JSON. Verificado en vivo con Qdrant apagado:
+    `/ask` y `/search` → 503 con `{detail: ...}` legible. Tests:
+    `test_qdrant_client.py` (nuevo) + casos 503 en `test_api.py` y CLI.
+- [ ] **T-702** El bucle de la llamada grabada, completo
+  - *Aceptación:* subir una grabación deja, al terminar el job, sus notas
+    vectorizadas en Qdrant y su resumen IA en `vault/calls/` — la llamada
+    grabada queda consultable por RAG. `_process_upload` encadena
+    `ingest_audio` → `reindex_vault()` → `summarize_call(call.id)`.
+- [ ] **T-703** "Consultar llamada grabada" — vista de detalle rica
+  - *Aceptación:* clicar una llamada en estado `done` muestra lo que la IA
+    ingestó y razonó: resumen + notas + decisiones + tareas de esa llamada.
+    `GET /calls/{id}/detail` devuelve `{summary, notes, decisions, tasks}`.
+- [ ] **T-704** Botón "Brainstorming" — la IA razona sobre la llamada
+  - *Aceptación:* pulsar "Brainstorming" sobre una llamada devuelve ideas
+    nuevas razonadas sobre sus notas (analogías, próximos pasos, preguntas
+    abiertas, riesgos). `POST /calls/{id}/brainstorm` →
+    `agent/brainstorm.py::brainstorm_call`.
+- [ ] **T-705** Mensajes nuevos — badge de no leídos
+  - *Aceptación:* llega un mensaje a un canal no activo → aparece su contador
+    numérico en la barra lateral; al abrir el canal, desaparece. Verificación:
+    smoke manual (dos pestañas).
+- [ ] **T-706** Indicador de quién habla en la llamada
+  - *Aceptación:* al hablar, el recuadro de vídeo de quien habla se ilumina
+    (borde luminoso); en silencio, no. `AnalyserNode` de Web Audio por stream.
+    Verificación: smoke manual.
+- [ ] **T-707** *(opcional)* Surfacing de los índices del corpus en la web
+  - *Aceptación:* `decisions` / `tasks` / `themes` / `serendipity`, hoy solo
+    en CLI, accesibles desde la app vía endpoints `GET` + paneles. Solo si el
+    usuario lo pide.
+
+---
+
 ## Backlog (no priorizado todavía)
 
 - Captura de audio en tiempo real durante la llamada
@@ -241,3 +306,4 @@ Actualizar manualmente al cierre de cada fase:
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
 | 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |
+| 7 | 6 | 1 | 17% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (`VectorStoreUnavailableError` → 503 legible). Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |

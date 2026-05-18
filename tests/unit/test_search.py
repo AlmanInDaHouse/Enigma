@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from enigma.cli import app
 from enigma.search import SearchResult, search_notes
-from enigma.vector.qdrant_client import SearchHit
+from enigma.vector.qdrant_client import SearchHit, VectorStoreUnavailableError
 
 runner = CliRunner()
 
@@ -168,3 +168,15 @@ def test_cli_search_top_k_option() -> None:
         result = runner.invoke(app, ["search", "query", "--top-k", "3"])
     assert result.exit_code == 0
     assert mock_search.call_args.kwargs["top_k"] == 3
+
+
+def test_cli_search_handles_vector_store_down() -> None:
+    """Qdrant caído → la CLI sale con código 1 y un mensaje claro (T-701)."""
+    error = VectorStoreUnavailableError("La base vectorial no responde. Arranca Qdrant.")
+    with (
+        patch("enigma.search.embed_text", return_value=[0.1] * 768),
+        patch("enigma.search.search", side_effect=error),
+    ):
+        result = runner.invoke(app, ["search", "consulta"])
+    assert result.exit_code == 1
+    assert "Qdrant" in result.output
