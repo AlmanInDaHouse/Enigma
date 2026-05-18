@@ -31,6 +31,9 @@ const state = {
     mixDest: null,
     mixedSources: null,
     recChunks: [],
+    speakCtx: null, // AudioContext dedicado al análisis de quién habla
+    analysers: new Map(), // tileId -> { analyser, data }
+    speakRaf: null, // handle del bucle requestAnimationFrame
   },
 };
 
@@ -543,6 +546,7 @@ async function joinCall() {
 
 function leaveCall() {
   if (state.call.recording) stopRecording();
+  stopSpeakerAnalysis();
   wsSend({ type: "call-leave" });
   for (const peerId of [...state.call.peers.keys()]) closePeer(peerId);
   for (const stream of [state.call.localStream, state.call.screenStream]) {
@@ -954,6 +958,80 @@ function renderControls() {
 }
 
 /* Crea/actualiza un tile de vídeo por participante sin recrear los <video>. */
+/* ── Indicador de quién habla (T-706) ────────────────────────────────── */
+
+const SPEAKING_RMS_THRESHOLD = 0.045;
+/* Nivel RMS (0-1) a partir del cual un tile se considera "hablando".
+   Medido sobre voz normal ~0.05-0.2, silencio/ruido de fondo < 0.02. */
+
+/* Mantiene un AnalyserNode por tile con audio (local + cada par). Idempotente:
+   se llama desde `syncTiles`, así que sigue las altas y bajas de pares. */
+function syncSpeakerAnalysis() {
+  if (!state.call.joined) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return; // navegador sin Web Audio: la llamada sigue, sin indicador
+  if (!state.call.speakCtx) {
+    state.call.speakCtx = new Ctx();
+    state.call.speakRaf = requestAnimationFrame(speakerFrame);
+  }
+  const streams = new Map([["local", state.call.localStream]]);
+  for (const [peerId, entry] of state.call.peers) streams.set(peerId, entry.stream);
+
+  for (const [tileId, stream] of streams) {
+    if (state.call.analysers.has(tileId)) continue;
+    if (!stream || stream.getAudioTracks().length === 0) continue;
+    let source;
+    try {
+      source = state.call.speakCtx.createMediaStreamSource(stream);
+    } catch (_) {
+      continue; // stream sin audio utilizable
+    }
+    const analyser = state.call.speakCtx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    state.call.analysers.set(tileId, {
+      analyser,
+      data: new Uint8Array(analyser.fftSize),
+    });
+  }
+  for (const tileId of [...state.call.analysers.keys()]) {
+    if (!streams.has(tileId)) state.call.analysers.delete(tileId);
+  }
+}
+
+/* Bucle de medición: ilumina el tile de quien supera el umbral de volumen. */
+function speakerFrame() {
+  if (!state.call.joined) {
+    state.call.speakRaf = null; // el bucle se detiene al colgar
+    return;
+  }
+  for (const [tileId, a] of state.call.analysers) {
+    const tile = document.getElementById(`tile-${tileId}`);
+    if (!tile) continue;
+    a.analyser.getByteTimeDomainData(a.data);
+    let sum = 0;
+    for (const v of a.data) {
+      const x = (v - 128) / 128;
+      sum += x * x;
+    }
+    const rms = Math.sqrt(sum / a.data.length);
+    // El tile local solo se ilumina si el micrófono está activo.
+    const muted = tileId === "local" && !state.call.micOn;
+    tile.classList.toggle("speaking", !muted && rms > SPEAKING_RMS_THRESHOLD);
+  }
+  state.call.speakRaf = requestAnimationFrame(speakerFrame);
+}
+
+function stopSpeakerAnalysis() {
+  if (state.call.speakRaf) cancelAnimationFrame(state.call.speakRaf);
+  state.call.speakRaf = null;
+  state.call.analysers.clear();
+  if (state.call.speakCtx) {
+    state.call.speakCtx.close().catch(() => {});
+    state.call.speakCtx = null;
+  }
+}
+
 function syncTiles() {
   const grid = document.getElementById("call-grid");
   if (!grid || !state.call.joined) return;
@@ -999,6 +1077,8 @@ function syncTiles() {
     tile.classList.toggle("cam-off", !hasVideo);
     tile.querySelector(".tile-name").textContent = state.call.names.get(peerId) || "Invitado";
   }
+
+  syncSpeakerAnalysis();
 }
 
 /* ── Enigma: estadísticas ────────────────────────────────────────────── */

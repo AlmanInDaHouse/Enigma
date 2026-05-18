@@ -343,10 +343,25 @@
     (`history`) no cuenta como no leído. Verificación: smoke manual con dos
     pestañas (no automatizable sin runner de navegador; mismo patrón que la
     Fase 6) + `node --check` de `app.js`.
-- [ ] **T-706** Indicador de quién habla en la llamada
+- [x] **T-706** Indicador de quién habla en la llamada
   - *Aceptación:* al hablar, el recuadro de vídeo de quien habla se ilumina
     (borde luminoso); en silencio, no. `AnalyserNode` de Web Audio por stream.
     Verificación: smoke manual.
+  - **Nota:** frontend puro (`app.js` + `style.css`). Un `AnalyserNode` por
+    tile con audio (local + cada par), gestionado por `syncSpeakerAnalysis()`
+    desde `syncTiles` — sigue altas y bajas de pares. Bucle
+    `requestAnimationFrame` (`speakerFrame`) que mide el RMS de
+    `getByteTimeDomainData` y aplica la clase `.speaking` (borde teal
+    luminoso) por encima de `SPEAKING_RMS_THRESHOLD` (0.045, constante con
+    nombre, ajustable). **Decisiones:** `AudioContext` dedicado al análisis
+    (`speakCtx`), separado del de la grabación (T-603) para no arriesgar la
+    mezcla; el tile local solo se ilumina si el micro está activo
+    (`micOn`); el bucle arranca al unirse y se detiene al colgar
+    (`stopSpeakerAnalysis` en `leaveCall`, que cancela el rAF y cierra el
+    contexto). Navegador sin Web Audio → la llamada sigue sin indicador.
+    Verificación: smoke manual (hablar y ver el borde) + `node --check` de
+    `app.js`; Web Audio + WebRTC no son testeables sin navegador (mismo
+    patrón que T-602/T-705).
 - [ ] **T-707** *(opcional)* Surfacing de los índices del corpus en la web
   - *Aceptación:* `decisions` / `tasks` / `themes` / `serendipity`, hoy solo
     en CLI, accesibles desde la app vía endpoints `GET` + paneles. Solo si el
@@ -380,4 +395,4 @@ Actualizar manualmente al cierre de cada fase:
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
 | 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |
-| 7 | 6 | 5 | 83% | 🚧 En curso. T-707 opcional, no cuenta en el total. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail`). T-704: brainstorming IA sobre una llamada (`/calls/{id}/brainstorm`). T-705: badge de mensajes no leídos por canal. Cierra el bucle grabar→IA→consultar→brainstorming + pulido de chat/llamadas. |
+| 7 | 6 | 6 | 100% | ✅ Fase 7 completa. T-701: un Qdrant caído ya no rompe `/ask` (503 legible). T-702: el bucle grabado funciona end-to-end (arreglado el rechazo de `.webm` que dejaba T-603 inoperante; `.webm` añadido a RF-01). T-703: vista de detalle de llamada (`/calls/{id}/detail`). T-704: brainstorming IA sobre una llamada (`/calls/{id}/brainstorm`). T-705: badge de mensajes no leídos por canal. T-706: indicador de quién habla en la llamada. T-707 opcional, no acometido. |
