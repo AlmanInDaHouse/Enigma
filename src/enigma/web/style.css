@@ -769,6 +769,84 @@ body::before {
 .call-status.work { color: var(--amber); border-color: rgba(236, 180, 85, 0.4); }
 .call-status.fail { color: var(--bad); border-color: rgba(217, 122, 110, 0.4); }
 
+/* ── Modal (detalle de llamada) ───────────────────────────────────────── */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 9, 12, 0.82);
+  backdrop-filter: blur(6px);
+}
+.modal[hidden] { display: none; }
+
+.modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 30px 32px;
+  animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--ink-3);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.16s, color 0.16s;
+}
+.modal-close:hover { background: var(--ink-4); color: var(--text); }
+
+.modal-title {
+  font-family: "Fraunces", serif;
+  font-weight: 500;
+  font-size: 1.4rem;
+  padding-right: 36px;
+}
+.modal-sub {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 5px 0 20px;
+}
+.modal-empty { color: var(--text-dim); font-style: italic; font-size: 14px; }
+
+.modal-notes { display: flex; flex-direction: column; gap: 9px; }
+.modal-note {
+  background: var(--ink-4);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px 16px;
+}
+.modal-note-title { font-size: 14.5px; font-weight: 600; }
+.modal-note-meta {
+  margin-top: 3px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.call-row.clickable { cursor: pointer; transition: border-color 0.18s, background 0.18s; }
+.call-row.clickable:hover { border-color: var(--line-bright); background: var(--ink-3); }
+
 /* ── Animaciones ──────────────────────────────────────────────────────── */
 
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }

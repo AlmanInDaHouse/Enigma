@@ -209,8 +209,9 @@
 - [x] **T-603 (W3)** Grabar la llamada → pipeline
   - *Aceptación:* al colgar, la grabación entra en `ingest_audio` (job en background) y se convierte en notas
   - **Nota:** el bucle completo cerrado. En la llamada hay un botón de **grabar**: el navegador mezcla el audio (mic local + el de cada par) con `AudioContext` + `MediaStreamAudioDestinationNode` y lo captura con `MediaRecorder` (`audio/webm`). Al parar (o al colgar) la grabación se sube a `POST /calls/upload` — **cuerpo crudo, sin multipart** (sin dependencias nuevas). El endpoint guarda el audio y lanza `ingest_audio` como **job en background** (FastAPI `BackgroundTasks`); la ingesta es lenta y la respuesta vuelve al instante. `GET /calls` lista las llamadas con su `status` (pending→transcribing→extracting→done); el lobby de la llamada muestra esa lista y la refresca cada 6 s. La transcripción decodifica el webm vía PyAV; la diarización (pyannote) solo corre si el servidor arranca con FFmpeg shared en el PATH — si no, se salta (best-effort, RF-03). Tests cubren `/calls` y `/calls/upload` (incluida la background task).
-- [ ] **T-604 (W4)** Consulta integrada y pulido
+- [x] **T-604 (W4)** Consulta integrada y pulido
   - *Aceptación:* la llamada procesada queda enlazada a sus notas y consultable desde la app
+  - **Nota:** `GET /calls/{id}/notes` devuelve las notas atómicas de una llamada (filtra `list_vault_notes` por `call_id`). En el frontend, cada llamada de la lista es clicable: abre un **modal** con sus notas (título, etiquetas, estado) — la llamada queda enlazada a su conocimiento. Si aún se procesa, el modal muestra el estado. La consulta libre (RAG + búsqueda) ya vivía en el panel "Consultar la memoria". Cierra la Fase 6: Enigma es el espacio del equipo — chatear, llamar, grabar y consultar, todo en una app local-first.
 
 ---
 
@@ -239,4 +240,4 @@ Actualizar manualmente al cierre de cada fase:
 | 3 | 5 | 5 | 100% | ✅ Fase 3 completa. T-302 sin LlamaIndex (RAG a mano sobre Qdrant+Ollama, `PLAN.md §4.1`). T-303: eval manual ≥7/10 pendiente de corpus real. T-304: nueva dep `sentence-transformers` (`PLAN.md §4.8`); recall@5 formal pendiente de corpus etiquetado. T-305: `search()` robusto ante colección ausente. |
 | 4 | 6 | 6 | 100% | ✅ Fase 4 completa. T-401 resumen single-shot. T-402 `decisions.md` / T-403 `tasks.md` desde transcripts (N llamadas LLM, sin caché). T-404 contradicciones O(N·k), `PLAN.md §4.9`. T-405 ideas recurrentes por componentes conexas, umbral empírico 0.68, `§4.10`. T-406 serendipia por banda de similitud media, `§4.11`. |
 | 5 | 6 | 6 | 100% | ✅ Fase 5 completa. T-501 `bootstrap.ps1`. T-502 `setup-windows.md`. T-503 `usuario-final.md`. T-504 `enigma stats`. T-505 `backup`/`restore`. T-506 meta-test de onboarding: 7/7 etapas PASS sobre audio sintético (`docs/onboarding.md`). |
-| 6 | 4 | 3 | 75% | Ampliación post-MVP (comunicación). W1 chat + W2 llamadas WebRTC + W3 grabar→pipeline (`MediaRecorder` → `/calls/upload` → `ingest_audio` en background) hechos. Pendiente: W4 consulta integrada. Ver `PLAN.md §4.13`. |
+| 6 | 4 | 4 | 100% | ✅ Fase 6 completa. W1 chat · W2 llamadas WebRTC · W3 grabar→pipeline · W4 llamada↔notas + consulta integrada. Enigma es la app de comunicación del equipo. Ver `PLAN.md §4.13`. |

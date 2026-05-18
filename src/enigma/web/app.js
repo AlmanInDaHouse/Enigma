@@ -659,15 +659,86 @@ async function loadCalls() {
         const st = CALL_STATUS[call.status] || { label: call.status, cls: "" };
         const when = new Date(call.recorded_at).toLocaleString("es-ES");
         const mins = (call.duration_seconds / 60).toFixed(1);
-        return `<div class="call-row">
+        const title = call.title || "Llamada";
+        return `<div class="call-row clickable" data-id="${escapeHtml(call.id)}"
+            data-title="${escapeHtml(title)}" data-status="${escapeHtml(call.status)}">
           <div class="call-row-main">
-            <div class="call-row-title">${escapeHtml(call.title || "Llamada")}</div>
+            <div class="call-row-title">${escapeHtml(title)}</div>
             <div class="call-row-meta">${escapeHtml(when)} · ${mins} min</div>
           </div>
           <span class="call-status ${st.cls}">${escapeHtml(st.label)}</span>
         </div>`;
       })
       .join("");
+  box.querySelectorAll(".call-row").forEach((row) => {
+    row.addEventListener("click", () =>
+      openCallNotes(row.dataset.id, row.dataset.title, row.dataset.status)
+    );
+  });
+}
+
+/* ── Modal: detalle de una llamada ───────────────────────────────────── */
+
+function openModal(html) {
+  document.getElementById("modal-body").innerHTML = html;
+  document.getElementById("modal").hidden = false;
+}
+
+function closeModal() {
+  document.getElementById("modal").hidden = true;
+}
+
+function setupModal() {
+  const modal = document.getElementById("modal");
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeModal();
+  });
+}
+
+async function openCallNotes(callId, title, status) {
+  const head = `<h3 class="modal-title">${escapeHtml(title)}</h3>`;
+  if (status !== "done") {
+    const st = CALL_STATUS[status] || { label: status };
+    openModal(
+      `${head}<p class="modal-sub">${escapeHtml(st.label)}</p>
+       <p class="modal-empty">Enigma todavía está procesando esta llamada. Vuelve en un momento.</p>`
+    );
+    return;
+  }
+  openModal(`${head}<p class="modal-sub">cargando notas…</p>`);
+  let notes;
+  try {
+    notes = await getJSON(`/calls/${encodeURIComponent(callId)}/notes`);
+  } catch (err) {
+    openModal(`${head}<p class="modal-empty">No se pudieron cargar las notas: ${escapeHtml(
+      err.message
+    )}</p>`);
+    return;
+  }
+  if (!notes.length) {
+    openModal(
+      `${head}<p class="modal-sub">sin notas</p>
+       <p class="modal-empty">Esta llamada no produjo notas atómicas.</p>`
+    );
+    return;
+  }
+  const list = notes
+    .map((note) => {
+      const tags = (note.tags || []).length ? "#" + note.tags.join("  #") : "sin etiquetas";
+      return `<div class="modal-note">
+        <div class="modal-note-title">${escapeHtml(note.title)}</div>
+        <div class="modal-note-meta">${escapeHtml(tags)} · ${escapeHtml(note.status)}</div>
+      </div>`;
+    })
+    .join("");
+  openModal(
+    `${head}<p class="modal-sub">${notes.length} nota(s) · destiladas por Enigma</p>
+     <div class="modal-notes">${list}</div>`
+  );
 }
 
 /* ── Render de la vista de llamada ───────────────────────────────────── */
@@ -897,6 +968,7 @@ setupGate();
 setupComposer();
 setupAsk();
 setupSearch();
+setupModal();
 
 // Refresca el estado de las llamadas mientras se mira el lobby de la llamada.
 setInterval(() => {

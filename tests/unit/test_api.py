@@ -20,6 +20,7 @@ from enigma.config import settings
 from enigma.models.call import Call
 from enigma.search import SearchResult
 from enigma.stats import ActivityStats, CorpusStats, EnigmaStats, HealthProbe
+from enigma.vault.reader import NoteSummary
 
 client = TestClient(app)
 runner = CliRunner()
@@ -249,6 +250,43 @@ def test_upload_call_rejects_empty_body(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setattr(settings, "enigma_data_path", tmp_path)
     response = client.post("/calls/upload", params={"title": "Vacía"}, content=b"")
     assert response.status_code == 422
+
+
+# ── GET /calls/{id}/notes ────────────────────────────────────────────────────
+
+
+def _note_summary(call_id: object, title: str) -> NoteSummary:
+    return NoteSummary(
+        path=Path(f"/vault/inbox/{uuid4().hex}.md"),
+        note_id=uuid4(),
+        title=title,
+        created_at=datetime.now(tz=UTC),
+        status="draft",
+        tags=["equipo"],
+        call_id=call_id,  # type: ignore[arg-type]
+    )
+
+
+def test_call_notes_returns_only_that_calls_notes() -> None:
+    target = uuid4()
+    other = uuid4()
+    summaries = [
+        _note_summary(target, "Nota de la llamada"),
+        _note_summary(other, "Nota de otra llamada"),
+    ]
+    with patch("enigma.api.list_vault_notes", return_value=summaries):
+        response = client.get(f"/calls/{target}/notes")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["title"] == "Nota de la llamada"
+
+
+def test_call_notes_empty_when_no_match() -> None:
+    with patch("enigma.api.list_vault_notes", return_value=[_note_summary(uuid4(), "X")]):
+        response = client.get(f"/calls/{uuid4()}/notes")
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 # ── WebSocket /ws ────────────────────────────────────────────────────────────

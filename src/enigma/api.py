@@ -10,6 +10,7 @@ navegador además de la CLI:
 - `GET  /search`   → búsqueda semántica top-k de notas.
 - `GET  /channels` → canales de chat disponibles.
 - `GET  /calls`    → llamadas registradas y su estado de procesado.
+- `GET  /calls/{id}/notes` → notas extraídas de una llamada.
 - `POST /ask`      → pregunta en lenguaje natural → respuesta RAG con citas.
 - `POST /calls/upload` → sube la grabación de una llamada → pipeline.
 - `WS   /ws`       → chat + presencia + señalización WebRTC (Fase 6).
@@ -45,6 +46,7 @@ from enigma.pipeline import ingest_audio
 from enigma.realtime import CHANNELS, manager, recent_messages, store_chat
 from enigma.search import SearchResult, search_notes
 from enigma.stats import EnigmaStats, gather_stats
+from enigma.vault.reader import list_vault_notes
 
 _log = logging.getLogger(__name__)
 _WEB_DIR = Path(__file__).parent / "web"
@@ -144,6 +146,32 @@ def calls() -> list[CallCard]:
             duration_seconds=call.duration_seconds,
         )
         for call in rows
+    ]
+
+
+class CallNote(BaseModel):
+    """Una nota atómica extraída de una llamada."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    note_id: UUID
+    title: str
+    status: str
+    tags: list[str]
+
+
+@app.get("/calls/{call_id}/notes", response_model=list[CallNote])
+def call_notes(call_id: UUID) -> list[CallNote]:
+    """Notas del Vault extraídas de una llamada concreta."""
+    return [
+        CallNote(
+            note_id=summary.note_id,
+            title=summary.title,
+            status=summary.status,
+            tags=summary.tags,
+        )
+        for summary in list_vault_notes()
+        if summary.call_id == call_id
     ]
 
 
